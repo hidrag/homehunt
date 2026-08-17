@@ -56,6 +56,45 @@ Before implementing an API:
 
 Exact endpoints and payloads should be documented as each domain is implemented.
 
+## /api/properties Contract (S1)
+
+**GET /api/properties**
+- **Purpose**: Fetch a paginated list of properties.
+- **Query Parameters**:
+  - `page` (Number, default: 1, invalid fallback: 1)
+  - `limit` (Number, default: 10, max: 50, invalid fallback: 10)
+- **Ordering**:
+  - Default: `createdAt DESC`
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "properties": [ { /* Property object without heavy populated fields */ } ],
+      "pagination": {
+        "total": 100,
+        "page": 1,
+        "pages": 10,
+        "limit": 10
+      }
+    }
+  }
+  ```
+
+**GET /api/properties/:id**
+- **Purpose**: Fetch a single property detail.
+- **Parameters**: `id` (MongoDB ObjectId).
+- **Validation**: Mongoose `isValidObjectId()`.
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "data": { "property": { /* Complete Property object */ } }
+  }
+  ```
+- **Error Responses**:
+  - `400 Bad Request`: `INVALID_ID` if ObjectId is malformed.
+  - `404 Not Found`: `NOT_FOUND` if property does not exist.
 ## Authorization
 Every protected endpoint must explicitly define required authentication and role/ownership rules.
 

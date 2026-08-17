@@ -19,7 +19,7 @@ A production-style MERN real-estate listing and discovery platform.
 ## Local development
 
 ### Prerequisites
-- Node.js (v18+)
+- Node.js (v24+)
 - MongoDB (Local or Atlas)
 
 ### Client

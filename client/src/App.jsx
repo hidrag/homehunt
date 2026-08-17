@@ -8,6 +8,8 @@ import Listings from './pages/Listings';
 import Login from './pages/Login';
 import Admin from './pages/Admin';
 
+import ListingDetail from './pages/ListingDetail';
+
 function App() {
   return (
     <Provider store={store}>
@@ -16,6 +18,7 @@ function App() {
           <Route path="/" element={<AppLayout />}>
             <Route index element={<Home />} />
             <Route path="listings" element={<Listings />} />
+            <Route path="listings/:id" element={<ListingDetail />} />
             <Route path="login" element={<Login />} />
             <Route path="admin" element={<Admin />} />
           </Route>

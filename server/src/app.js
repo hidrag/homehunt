@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import propertyRoutes from './routes/property.routes.js';
 
 const app = express();
 
@@ -21,6 +22,9 @@ app.use(limiter);
 
 // Parse JSON bodies
 app.use(express.json());
+
+// API Routes
+app.use('/api/properties', propertyRoutes);
 
 // Health Check API
 app.get('/api/health', (req, res) => {
