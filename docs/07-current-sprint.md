@@ -1,49 +1,38 @@
 # HomeHunt — Current Sprint
-
+ 
 ## Sprint
-S1 — Property Core
+S2 — Search, Filters & Sorting
 
 ## Status
 [~] In progress
 
 ## Goal
-Establish the Property domain end-to-end, enabling properties to be persisted in MongoDB, fetched via REST API, and displayed on frontend listing and detail pages.
+Implement keyword search, multi-faceted filtering (city, property type, listing type, price range, bedrooms), sorting, and pagination for properties, keeping URL query parameters as the single source of truth.
 
 ## Current objectives
-- Document Property schema and API contract explicitly.
-- Create the Property Mongoose model with GeoJSON location support and validation.
-- Implement GET `/api/properties` with pagination.
-- Implement GET `/api/properties/:id` with proper validation.
-- Implement backend integration tests.
-- Create development seed data (Indian geography/currency) using synthetic agent ObjectIds.
-- Build frontend API integration using local React state and Axios.
-- Build UI components: `PropertyCard`.
-- Build UI pages: `Listings.jsx` and `ListingDetail.jsx`.
-- Implement robust loading, empty, and error fallback states.
+- Document S2 database index, API contracts, and parameter mappings.
+- Add MongoDB `$text` index on `title`, `description`, and `address.city`.
+- Implement backend query sanitization, whitelisting, regex escaping, and validation in `property.controller.js`.
+- Update `property.service.js` to execute sanitized filter and sort queries.
+- Add integration tests for search, individual/combined filters, sort orders, invalid numbers, and NoSQL injection attempts.
+- Centralize frontend URL-to-API parameter mapping in `propertyApi.js`.
+- Create frontend filter components (`PropertyFilters`, `SearchInput` with 500ms debounce, `SelectFilter`).
+- Refactor `Listings.jsx` to synchronize state with `useSearchParams` and handle request cancellation.
 
 ## Explicitly out of scope
-- Authentication, Users, and RBAC.
-- Property Creation/Update APIs (seed script handles data creation).
-- Redux Toolkit usage (local state sufficient for S1 fetching).
-- Advanced search, filtering, and sorting.
-- Complex maps (Leaflet/Google Maps).
-- Image uploads (Cloudinary).
+- Authentication, Users, Agents, RBAC.
+- Bookmarks, saved searches, notifications.
+- Maps, geolocation, heatmaps.
+- Cloudinary, virtual tours, scheduling.
+- Atlas Search, Elasticsearch.
+- Redux state for properties or filters.
 
 ## Acceptance criteria
-- [x] Backend: `Property` schema enforces data integrity and GeoJSON formats.
-- [x] Backend: `/api/properties` and `/api/properties/:id` operate successfully with documented pagination and error handling.
-- [x] Backend: Integration tests pass for property endpoints.
-- [x] Frontend: `/listings` displays a responsive grid of property cards fetched from the API.
-- [x] Frontend: `/listings/:id` displays details for a specific property fetched from the API.
-- [x] Frontend: UI gracefully handles loading states and "not found" errors.
-- [x] Integration: The application successfully displays the ~25 seeded database records.
-
-## Completion checklist
-- [x] Documentation updated
-- [x] Property model created
-- [x] Backend service, controller, and routes implemented
-- [x] Backend integration tests passed
-- [x] MongoDB seed script created (25 properties)
-- [x] Frontend API integration complete
-- [x] UI Components and Pages built
-- [x] End-to-end manual verification completed
+- [ ] Backend: MongoDB `$text` index added for `title`, `description`, `address.city`.
+- [ ] Backend: Strict validation and NoSQL operator protection for all query parameters.
+- [ ] Backend: Search and filters can be combined arbitrarily.
+- [ ] Backend: Integration tests pass for all S2 scenarios and all S1 regression tests pass.
+- [ ] Frontend: Filter controls (search, city, property type, listing type, price range, bedrooms, sort).
+- [ ] Frontend: URL query string is the single source of truth; reloads and browser back/forward work seamlessly.
+- [ ] Frontend: Debounced search input (~500ms) with stale request race-condition protection.
+- [ ] Frontend: Clear filters restores canonical default `/listings`.

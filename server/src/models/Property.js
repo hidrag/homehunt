@@ -79,11 +79,12 @@ const propertySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Indexes per S1 Architecture
+// Indexes per S1 & S2 Architecture
 propertySchema.index({ location: '2dsphere' });
-propertySchema.index({ city: 1 });
+propertySchema.index({ 'address.city': 1 });
 propertySchema.index({ propertyType: 1 });
 propertySchema.index({ listingType: 1 });
+propertySchema.index({ title: 'text', description: 'text', 'address.city': 'text' });
 
 const Property = mongoose.model('Property', propertySchema);
 

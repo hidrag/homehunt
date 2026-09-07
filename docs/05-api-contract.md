@@ -56,30 +56,51 @@ Before implementing an API:
 
 Exact endpoints and payloads should be documented as each domain is implemented.
 
-## /api/properties Contract (S1)
+## /api/properties Contract (S1 & S2)
 
 **GET /api/properties**
-- **Purpose**: Fetch a paginated list of properties.
-- **Query Parameters**:
-  - `page` (Number, default: 1, invalid fallback: 1)
-  - `limit` (Number, default: 10, max: 50, invalid fallback: 10)
-- **Ordering**:
-  - Default: `createdAt DESC`
-- **Response**:
-  ```json
-  {
-    "success": true,
-    "data": {
-      "properties": [ { /* Property object without heavy populated fields */ } ],
-      "pagination": {
-        "total": 100,
-        "page": 1,
-        "pages": 10,
-        "limit": 10
-      }
-    }
-  }
-  ```
+- **Purpose**: Fetch a paginated list of properties with search, filtering, and sorting.
+- **Backend Query Parameters**:
+  - `search` (String): Keyword search across `title`, `description`, `address.city` using MongoDB `$text`.
+  - `city` (String): Exact match, case-insensitive city name (safely regex-escaped).
+  - `propertyType` (String): Enum `['apartment', 'house', 'villa', 'condo', 'land']`.
+  - `listingType` (String): Enum `['sale', 'rent']`.
+  - `minPrice` (Number >= 0): Minimum price ($gte). Ignored if non-numeric/negative or if `minPrice > maxPrice`.
+  - `maxPrice` (Number >= 0): Maximum price ($lte). Ignored if non-numeric/negative or if `minPrice > maxPrice`.
+  - `bedrooms` (Number integer >= 0): Minimum bedrooms ($gte).
+  - `sort` (String): Sort order whitelist:
+    - `newest` (default) → `{ createdAt: -1 }`
+    - `price_asc` → `{ price: 1 }`
+    - `price_desc` → `{ price: -1 }`
+  - `sort` (String): Sort order whitelist (with deterministic `_id` secondary sort):
+    - `newest` (default) → `{ createdAt: -1, _id: -1 }`
+    - `price_asc` → `{ price: 1, _id: 1 }`
+    - `price_desc` → `{ price: -1, _id: -1 }`
+    - Any unknown value falls back to `newest`.
+  - `page` (Number >= 1, default: 1).
+  - `limit` (Number >= 1, default: 10, max: 50).
+- **Security & Validation Rules**:
+  - Raw `req.query` is never passed to MongoDB.
+  - NoSQL operator injection (`$gt`, `$where`, `$ne`, etc.) is strictly blocked; unknown fields are ignored.
+  - Out-of-range pages return `{ properties: [], pagination: { ... } }` with HTTP 200, not 404.
+
+### Frontend URL Contract & Parameter Mapping
+Frontend URL parameters (canonical names):
+- `q` → Backend `search`
+- `city` → Backend `city`
+- `type` → Backend `propertyType`
+- `listing` → Backend `listingType`
+- `minPrice` → Backend `minPrice`
+- `maxPrice` → Backend `maxPrice`
+- `beds` → Backend `bedrooms`
+- `sort` → Backend `sort`
+- `page` → Backend `page`
+
+URL Rules:
+- Canonical default URL is `/listings` (omit default `page=1` and `sort=newest`).
+- Empty parameters are removed (no `?q=&city=`).
+- Changing any filter or sort resets `page=1`.
+- Changing pagination preserves all existing filters.
 
 **GET /api/properties/:id**
 - **Purpose**: Fetch a single property detail.

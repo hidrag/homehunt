@@ -80,8 +80,14 @@ The `Property` model enforces the following core domain fields:
 
 **Indexes:**
 - `location` (`2dsphere`)
-- `city` (1)
+- `address.city` (1)
 - `propertyType` (1)
 - `listingType` (1)
+- `title`, `description`, `address.city` (`text`)
 
-*Note on S1 agent reference:* During Sprint 1, before the `User` domain is implemented, the `agent` reference will contain a deterministic, synthetically generated ObjectId inserted by the seed script. S1 APIs must not attempt to populate the `User` document for this field.
+### Text Index Limitations & Behavior (S2)
+The text index on `{ title: "text", description: "text", "address.city": "text" }` provides keyword search using MongoDB's `$text` operator.
+- Limitations: It is word/token-based and does not support true arbitrary substring, infix, or autocomplete matching.
+- Sorting: Results are ordered strictly by the user's selected `sort` parameter (or default `createdAt DESC`), never forced by `$meta` text relevance score.
+
+*Note on S1 agent reference:* During Sprint 1, before the `User` domain is implemented, the `agent` reference contains a deterministic, synthetically generated ObjectId inserted by the seed script. S1/S2 APIs must not attempt to populate the `User` document for this field.
