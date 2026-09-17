@@ -4,11 +4,12 @@ A production-style MERN real-estate listing and discovery platform.
 
 ## Stack
 
-- **Frontend**: React, Vite, Tailwind CSS, shadcn/ui, Redux Toolkit, React Hook Form
-- **Backend**: Node.js, Express, MongoDB, Mongoose
-- **Authentication**: JWT with HTTP-only cookies
-- **Maps**: Leaflet.js
-- **Images**: Cloudinary
+- **Frontend**: React 19, Vite, Tailwind CSS v4, Lucide React, Redux Toolkit, React Hook Form
+- **Backend**: Node.js (24 LTS), Express, MongoDB, Mongoose
+- **Authentication**: JWT with HTTP-only cookies (S4)
+- **Maps**: Leaflet.js with OpenStreetMap
+- **Images**: Remote CDN assets with defensive fallbacks (Cloudinary user uploads planned for S13)
+- **Status**: Sprint 3 Complete (Gallery, Maps & Property Experience)
 
 ## Repository structure
 

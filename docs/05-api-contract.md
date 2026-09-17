@@ -113,6 +113,9 @@ URL Rules:
     "data": { "property": { /* Complete Property object */ } }
   }
   ```
+- **Guarantees (S3)**:
+  - `images`: Array of URL strings is preserved in exact database order.
+  - `location`: Always returned in GeoJSON format `{ type: "Point", coordinates: [longitude, latitude] }`. Consumers needing `[latitude, longitude]` (e.g. Leaflet) must invert coordinates explicitly.
 - **Error Responses**:
   - `400 Bad Request`: `INVALID_ID` if ObjectId is malformed.
   - `404 Not Found`: `NOT_FOUND` if property does not exist.

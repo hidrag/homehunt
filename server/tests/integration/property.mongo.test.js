@@ -212,4 +212,76 @@ describe('Real MongoDB Integration Tests — Search, Filters & Sorting', () => {
       expect(responseToString.body.data.properties.length).toBeGreaterThan(0);
     });
   });
+
+  describe("GET /api/properties/:id Real MongoDB Execution", () => {
+    it("returns property detail preserving image array order and GeoJSON coordinates [lng, lat]", async () => {
+      const created = await Property.create({
+        title: "Penthouse with Terrace",
+        description: "Spectacular views with large wrap-around deck",
+        price: 50000000,
+        propertyType: "apartment",
+        listingType: "sale",
+        status: "available",
+        location: {
+          type: "Point",
+          coordinates: [72.8777, 19.076], // [longitude, latitude]
+        },
+        address: {
+          street: "Bandra Kurla Complex",
+          city: "Mumbai",
+          state: "Maharashtra",
+          zipCode: "400051",
+          country: "India",
+        },
+        agent: new mongoose.Types.ObjectId(),
+        images: [
+          "https://images.unsplash.com/photo-primary",
+          "https://images.unsplash.com/photo-second",
+          "https://images.unsplash.com/photo-third",
+        ],
+        bedrooms: 3,
+        bathrooms: 3,
+      });
+
+      const response = await request(app).get(`/api/properties/${created._id}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.property).toBeDefined();
+
+      const prop = response.body.data.property;
+      expect(prop._id).toBe(created._id.toString());
+      expect(prop.title).toBe("Penthouse with Terrace");
+
+      // Verify images survive and maintain exact index order
+      expect(prop.images).toHaveLength(3);
+      expect(prop.images[0]).toBe("https://images.unsplash.com/photo-primary");
+      expect(prop.images[1]).toBe("https://images.unsplash.com/photo-second");
+      expect(prop.images[2]).toBe("https://images.unsplash.com/photo-third");
+
+      // Verify GeoJSON location survives with [longitude, latitude] order
+      expect(prop.location).toBeDefined();
+      expect(prop.location.type).toBe("Point");
+      expect(prop.location.coordinates).toEqual([72.8777, 19.076]);
+    });
+
+    it("returns 400 INVALID_ID for malformed ObjectId against real database", async () => {
+      const response = await request(app).get(
+        "/api/properties/malformed-id-123",
+      );
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.code).toBe("INVALID_ID");
+    });
+
+    it("returns 404 NOT_FOUND for non-existent valid ObjectId against real database", async () => {
+      const nonExistentId = new mongoose.Types.ObjectId().toString();
+      const response = await request(app).get(
+        `/api/properties/${nonExistentId}`,
+      );
+      expect(response.status).toBe(404);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.code).toBe("NOT_FOUND");
+    });
+  });
 });

@@ -28,6 +28,11 @@ location: {
 
 A `2dsphere` index is required for geospatial queries.
 
+*Important Coordinate Ordering Note (S3)*:
+- MongoDB and GeoJSON specification strictly enforce `[longitude, latitude]`.
+- Map display engines (Leaflet, OpenStreetMap) and typical geographic coordinates expect `[latitude, longitude]`.
+- Frontend integration layers must explicitly invert coordinates before passing them to Leaflet (e.g., via `client/src/lib/propertyLocation.js`). Never alter the database storage ordering.
+
 ## Property relationship expectations
 A property should reference its responsible agent/owner using an explicit identifier. Do not infer ownership from arbitrary frontend data.
 
@@ -73,7 +78,7 @@ The `Property` model enforces the following core domain fields:
 - `bathrooms` (Number)
 - `area` (Number, square feet)
 - `amenities` (Array of Strings)
-- `images` (Array of Strings)
+- `images` (Array of Strings: remote URLs; `images[0]` serves as primary thumbnail across cards and previews; all elements are rendered sequentially in `PropertyGallery`)
 
 **Timestamps:**
 - `createdAt`, `updatedAt` (Mongoose timestamps)

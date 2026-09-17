@@ -2,23 +2,35 @@
 
 ## Testing layers
 
-### Unit
-Business logic and utilities.
+### Unit & Utility
+- Backend utility functions and helpers.
+- Frontend pure transformation utilities (e.g., `propertyLocation.js`).
 
 ### Integration/API
-Routes, controllers, services, database interactions and authorization.
+- Routes, controllers, services, database queries, and error handling.
+- Implemented with Jest + Supertest + mongodb-memory-server.
+- Test suites:
+  - `health.test.js`: System health endpoint.
+  - `property.test.js`: Mocked integration tests for search, filtering, pagination, sorting, validation, and detail endpoint guarantees.
+  - `property.mongo.test.js`: Real MongoDB in-memory database tests for text search, GeoJSON spatial queries, multi-filter combinations, image array ordering, and NoSQL injection security.
+- Current status: 34 tests passing.
 
-### Component
-Important React components and forms.
+### Component & Frontend
+- React UI components, forms, and interaction states.
+- *Current implementation status*: The `client` application does not currently have a dedicated test runner (e.g. Vitest/React Testing Library) installed. Code quality and correctness are maintained via:
+  - Strict static analysis with `oxlint`.
+  - Production bundling checks with `npm run build` (Vite).
+  - Manual browser testing across desktop, tablet, and mobile viewports.
+- *Roadmap plan*: Install Vitest and React Testing Library in a dedicated testing pass to avoid adding out-of-scope dependencies during feature sprints.
 
 ### E2E
-Critical user journeys.
+- Critical user journeys planned for S16 (Cypress/Playwright).
 
 ## Minimum critical E2E flows
 - Registration
 - Login/logout
 - Search and filtering
-- Property detail
+- Property detail (Gallery, Highlights, Location Map)
 - Bookmark
 - Inquiry
 - Agent listing creation
@@ -32,4 +44,4 @@ Critical user journeys.
 New functionality should receive appropriate tests in the same sprint. Do not intentionally defer all testing to the final sprint.
 
 ## Definition of done
-A feature is not complete if its acceptance criteria pass only manually and important regression behavior has no appropriate automated coverage.
+The requirement for automated verification applies to layers and features where an automated test runner exists (such as backend API and database integration tests). In the frontend, S3 gallery and map acceptance is validated through structured manual QA, static analysis (`oxlint`), and production build verification (`vite build`), because the approved S3 scope deliberately does not introduce a client test framework. A feature is not complete if its acceptance criteria fail manual QA or if automated test coverage is omitted where test infrastructure is established.

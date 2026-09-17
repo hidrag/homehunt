@@ -9,21 +9,21 @@ HomeHunt uses a two-application structure inside one Git repository:
 This is intentionally a simple monorepo-style repository without a workspace/build system initially.
 
 ## Frontend
-- React
+- React 19
 - Vite
 - React Router
-- Tailwind CSS
-- shadcn/ui
-- Redux Toolkit
-- React Hook Form
-- Yup
-- Axios
+- Tailwind CSS v4
+- Lucide React (icon system)
+- Leaflet.js (direct map rendering)
+- Redux Toolkit (global session/shared state)
+- React Hook Form & Yup (forms and validation)
+- Axios (HTTP client)
 
 ## Backend
 - Node.js (24 LTS)
 - Express
 - Mongoose
-- MongoDB Atlas
+- MongoDB Atlas / Local
 
 ## Authentication
 - JWT
@@ -34,13 +34,15 @@ This is intentionally a simple monorepo-style repository without a workspace/bui
 - Server-side authorization
 
 ## Images and files
-- Cloudinary for property images and suitable media.
+- S1–S3: Curated remote HTTPS image URLs (Unsplash CDN) stored in MongoDB, with defensive frontend fallback components to prevent broken images or layout collapse.
+- S13+: Cloudinary planned for authenticated user image uploads, transformations, and asset pipeline.
 - Sensitive legal/property documents must use controlled/private access; never expose secrets or unrestricted private document URLs.
 
 ## Maps
-- Leaflet.js
-- OpenStreetMap
-- MongoDB GeoJSON Point + `2dsphere` index for property coordinates
+- Leaflet.js (v1.9+) integrated directly (without `react-leaflet` wrapper) to give precise lifecycle control, prevent React 19 / StrictMode re-initialization crashes, and eliminate bundler asset issues.
+- OpenStreetMap tile layer with required attribution.
+- MongoDB GeoJSON Point `[longitude, latitude]` with `2dsphere` index; translated to Leaflet's `[latitude, longitude]` at the presentation layer via `propertyLocation.js`.
+- Custom SVG marker icon avoiding static PNG resolution pitfalls.
 
 ## Realtime
 - Socket.io

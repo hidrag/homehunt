@@ -403,6 +403,48 @@ describe('Property API Integration Tests', () => {
       expect(mockQuery.select).toHaveBeenCalledWith("-__v");
     });
 
+    it("should preserve images array and GeoJSON location in detail response", async () => {
+      const validObjectId = new mongoose.Types.ObjectId().toString();
+      const mockProperty = {
+        _id: validObjectId,
+        title: "Bandra Sea Facing Flat",
+        price: 45000000,
+        propertyType: "apartment",
+        location: {
+          type: "Point",
+          coordinates: [72.8258, 19.0544],
+        },
+        images: [
+          "https://images.unsplash.com/photo-1",
+          "https://images.unsplash.com/photo-2",
+          "https://images.unsplash.com/photo-3",
+        ],
+        agent: "64b000000000000000000001",
+      };
+
+      const mockQuery = {
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockResolvedValue(mockProperty),
+      };
+
+      jest.spyOn(Property, "findById").mockReturnValue(mockQuery);
+
+      const response = await request(app).get(
+        `/api/properties/${validObjectId}`,
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.property.images).toEqual([
+        "https://images.unsplash.com/photo-1",
+        "https://images.unsplash.com/photo-2",
+        "https://images.unsplash.com/photo-3",
+      ]);
+      expect(response.body.data.property.location).toEqual({
+        type: "Point",
+        coordinates: [72.8258, 19.0544],
+      });
+    });
+
     // 9. Invalid ObjectId returns 400.
     it("9. should return 400 with INVALID_ID code for malformed ObjectId", async () => {
       const response = await request(app).get(

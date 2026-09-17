@@ -1,38 +1,65 @@
 # HomeHunt — Current Sprint
- 
+
 ## Sprint
-S2 — Search, Filters & Sorting
+S3 — Maps, Gallery & Property Experience
 
 ## Status
-[~] In progress
+[x] Complete (Ready for human review)
 
 ## Goal
-Implement keyword search, multi-faceted filtering (city, property type, listing type, price range, bedrooms), sorting, and pagination for properties, keeping URL query parameters as the single source of truth.
+Elevate the property detail and browsing experience with a responsive, accessible image gallery, interactive Leaflet + OpenStreetMap location map, defensive broken-image fallbacks, and an upgraded layout hierarchy.
 
-## Current objectives
-- Document S2 database index, API contracts, and parameter mappings.
-- Add MongoDB `$text` index on `title`, `description`, and `address.city`.
-- Implement backend query sanitization, whitelisting, regex escaping, and validation in `property.controller.js`.
-- Update `property.service.js` to execute sanitized filter and sort queries.
-- Add integration tests for search, individual/combined filters, sort orders, invalid numbers, and NoSQL injection attempts.
-- Centralize frontend URL-to-API parameter mapping in `propertyApi.js`.
-- Create frontend filter components (`PropertyFilters`, `SearchInput` with 500ms debounce, `SelectFilter`).
-- Refactor `Listings.jsx` to synchronize state with `useSearchParams` and handle request cancellation.
+## Completed Objectives
+- **Property Image Gallery (`PropertyGallery.jsx`)**:
+  - In-house responsive gallery handling 0, 1, or multiple images.
+  - Active image display with aspect ratio container, previous/next controls, and image counter badge (`1 / N`).
+  - Thumbnail filmstrip with active state indicator (`aria-current="true"`), scroll support, and visible focus rings.
+  - Full keyboard accessibility: ArrowLeft, ArrowRight, Home, and End keys.
+  - Defensive broken-image handling via error state mapping without crashing navigation or displaying raw browser broken glyphs.
+- **Geospatial Utilities (`propertyLocation.js`)**:
+  - `isValidGeoPoint(location)`: Strict validation of GeoJSON structure, coordinate array types, and valid latitude/longitude bounds.
+  - `toLeafletLatLng(location)`: Explicit transformation of GeoJSON `[longitude, latitude]` to Leaflet `[latitude, longitude]`.
+  - `toOsmLink(lat, lng)`: Safe external link generation to OpenStreetMap view.
+- **Interactive Location Map (`PropertyMap.jsx`)**:
+  - Direct Leaflet.js integration with OpenStreetMap tile layer and proper OSM attribution.
+  - Custom SVG map pin (eliminating Vite asset path resolution issues).
+  - XSS-safe popup binding with property title using safe DOM textContent.
+  - Zoom configuration: default zoom 14, `scrollWheelZoom: false` to avoid trapping page scroll, interactive touch/click drag enabled.
+  - Robust React StrictMode lifecycle handling: ensures map instance is cleaned up (`map.remove()`) and instance ref cleared without private API manipulation.
+  - Accessible fallback card when coordinates are missing or invalid, showing MapPinOff icon and helpful fallback notice.
+  - External text link (`<a>`) opening location on OpenStreetMap in a new tab with `rel="noopener noreferrer"`.
+- **Defensive Card Fallback (`PropertyCard.jsx`)**:
+  - Graceful fallback placeholder when property cover image fails to load.
+- **Property Detail Layout Refactoring (`ListingDetail.jsx`)**:
+  - Refactored two-column layout:
+    - Left column: Back navigation, Header (title, address, badges), PropertyGallery, Key Highlights grid, About description, Amenities list, Location map section.
+    - Right column: Sticky sidebar with price display and listing metadata (status, listing type, property type, listed date).
+  - Enforced single `h1` per page (property title), section `h2` headings, and styled `<p>` for price to maintain clean accessibility heading hierarchy.
+- **Seed Data Quality**:
+  - Replaced dead Unsplash image URL (`photo-1502672260266-1c1c2b4418f1`) across all 3 affected properties in `server/scripts/seed/properties.js` with verified live asset (`photo-1560448204-e02f11c3d0e2`).
+  - Successfully re-seeded MongoDB database with 25 clean properties.
+- **Backend Test Coverage**:
+  - Added unit/mocked integration tests in `server/tests/integration/property.test.js` verifying image array preservation and GeoJSON coordinate handling on `GET /api/properties/:id`.
+  - Added real MongoDB integration tests in `server/tests/integration/property.mongo.test.js` verifying multiple images and GeoJSON coordinate ordering in database queries.
 
-## Explicitly out of scope
-- Authentication, Users, Agents, RBAC.
-- Bookmarks, saved searches, notifications.
-- Maps, geolocation, heatmaps.
-- Cloudinary, virtual tours, scheduling.
-- Atlas Search, Elasticsearch.
-- Redux state for properties or filters.
+## Explicitly Out of Scope
+- Authentication, Users, Sessions, and RBAC (S4).
+- Bookmarks, saved searches, inquiries, and visit scheduling (S5, S6, S8).
+- Multi-listing cluster map or radius search (S11).
+- Virtual tours, documents, and Cloudinary upload pipelines (S13).
+- React-leaflet wrapper or third-party slider/lightbox libraries.
+- Redux store for property detail or gallery state.
 
-## Acceptance criteria
-- [ ] Backend: MongoDB `$text` index added for `title`, `description`, `address.city`.
-- [ ] Backend: Strict validation and NoSQL operator protection for all query parameters.
-- [ ] Backend: Search and filters can be combined arbitrarily.
-- [ ] Backend: Integration tests pass for all S2 scenarios and all S1 regression tests pass.
-- [ ] Frontend: Filter controls (search, city, property type, listing type, price range, bedrooms, sort).
-- [ ] Frontend: URL query string is the single source of truth; reloads and browser back/forward work seamlessly.
-- [ ] Frontend: Debounced search input (~500ms) with stale request race-condition protection.
-- [ ] Frontend: Clear filters restores canonical default `/listings`.
+## Acceptance Criteria
+- [x] In-house image gallery supports 0, 1, and N images with counter badge and previous/next controls.
+- [x] Thumbnail filmstrip allows direct selection and reflects active image state.
+- [x] Keyboard navigation (ArrowLeft, ArrowRight, Home, End) is supported on gallery controls.
+- [x] Broken images degrade gracefully with fallback placeholder without breaking navigation.
+- [x] Leaflet map renders property location with OpenStreetMap tiles, attribution, and custom pin.
+- [x] GeoJSON `[lng, lat]` coordinates are correctly mapped to Leaflet `[lat, lng]`.
+- [x] Leaflet handles React StrictMode remounting without `Map container is already initialized` error.
+- [x] Invalid or missing coordinates render a polite fallback card instead of crashing.
+- [x] Scroll-wheel zoom is disabled to prevent scroll trapping; external OSM link provided.
+- [x] Semantic heading hierarchy (single `h1`, section `h2`s) and ARIA attributes pass accessibility standards.
+- [x] Seed data contains verified live image URLs; database reseeded cleanly.
+- [x] Automated backend tests pass (34/34), frontend builds cleanly with zero linter errors.
