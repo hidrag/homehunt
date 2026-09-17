@@ -119,6 +119,49 @@ URL Rules:
 - **Error Responses**:
   - `400 Bad Request`: `INVALID_ID` if ObjectId is malformed.
   - `404 Not Found`: `NOT_FOUND` if property does not exist.
+
+## /api/auth Contract (S4)
+
+All endpoints use the standard success/error envelopes defined above. "Set-Cookie" means the two authentication cookies specified in `docs/11-security-rules.md` (`hh_access`, `hh_refresh`).
+
+**POST /api/auth/register**
+- Auth: none. Rate limited (10/15 min/IP → `429 RATE_LIMITED`).
+- Body: `{ "name": string, "email": string, "password": string }`.
+- Validation: name required; email format + uniqueness (case-insensitive); password 8–72 characters. A client-supplied `role` or `passwordHash` is ignored and never honored.
+- Success `200`: `{ "success": true, "data": { "user": { "id", "name", "email", "role" } } }` + Set-Cookie (auto-login; session created).
+- Errors: `400 VALIDATION_ERROR`, `409 EMAIL_TAKEN`, `429 RATE_LIMITED`.
+- The account is always created with `role: "buyer"`.
+
+**POST /api/auth/login**
+- Auth: none. Rate limited.
+- Body: `{ "email": string, "password": string }`.
+- Success `200`: `{ "success": true, "data": { "user": { "id", "name", "email", "role" } } }` + Set-Cookie (new refresh-token family).
+- Errors: `400 VALIDATION_ERROR`; `401 INVALID_CREDENTIALS` for **both** unknown email and wrong password (no user enumeration; unknown emails still perform a dummy bcrypt comparison); `429 RATE_LIMITED`.
+
+**POST /api/auth/refresh**
+- Auth: refresh cookie only (no body).
+- Behaviour: verifies the refresh JWT, atomically revokes the presented session and creates its successor in the same family, then reissues both cookies. The new access token carries the user's current role.
+- Success `200`: `{ "success": true, "data": { "user": { "id", "name", "email", "role" } } }` + Set-Cookie (rotated pair).
+- Errors: `401 INVALID_REFRESH`, `401 REFRESH_EXPIRED`, `401 REFRESH_TOKEN_REUSED` (reuse detected → entire family revoked, both cookies cleared), `429 RATE_LIMITED`.
+- Rotation is strict: no grace window; a replayed rotated token revokes the family and the user must log in again.
+
+**POST /api/auth/logout**
+- Auth: none required (safe and idempotent without cookies).
+- Behaviour: revokes the acting session when present; always clears both cookies; always returns success.
+- Success `200`: `{ "success": true, "data": {} }` + cookie clearing.
+
+**GET /api/auth/me**
+- Auth: access cookie required (`requireAuth` middleware).
+- Success `200`: `{ "success": true, "data": { "user": { "id", "name", "email", "role" } } }`.
+- Errors: `401 UNAUTHORIZED` (missing/invalid/expired access token).
+
+### Auth error vocabulary (S4)
+`VALIDATION_ERROR`, `EMAIL_TAKEN`, `INVALID_CREDENTIALS`, `UNAUTHORIZED`, `INVALID_REFRESH`, `REFRESH_EXPIRED`, `REFRESH_TOKEN_REUSED`, `FORBIDDEN`, `RATE_LIMITED`.
+Existing codes (`NOT_FOUND`, `INVALID_ID`, `INTERNAL_SERVER_ERROR`) remain unchanged.
+
+### Ownership convention (future S5+ resources)
+Protected resource endpoints must define their required authentication and role/ownership rules. The repository-wide convention is `requireOwnership(resource, ownerField)`: `req.user.id` must equal `resource[ownerField]`, otherwise `403 FORBIDDEN`. No S4 endpoint implements ownership checks because S4 introduces no agent-owned resource.
+
 ## Authorization
 Every protected endpoint must explicitly define required authentication and role/ownership rules.
 

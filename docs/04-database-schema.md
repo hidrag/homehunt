@@ -5,6 +5,7 @@ MongoDB Atlas with Mongoose.
 
 ## Collections
 - users
+- sessions
 - properties
 - bookmarks
 - inquiries
@@ -96,3 +97,44 @@ The text index on `{ title: "text", description: "text", "address.city": "text" 
 - Sorting: Results are ordered strictly by the user's selected `sort` parameter (or default `createdAt DESC`), never forced by `$meta` text relevance score.
 
 *Note on S1 agent reference:* During Sprint 1, before the `User` domain is implemented, the `agent` reference contains a deterministic, synthetically generated ObjectId inserted by the seed script. S1/S2 APIs must not attempt to populate the `User` document for this field.
+
+## User Schema (S4)
+
+Collection: `users`
+
+**Fields:**
+- `_id` (ObjectId)
+- `name` (String, required, trimmed, max 120)
+- `email` (String, required, lowercase, trimmed, unique) — the unique login identity
+- `passwordHash` (String, required, `select: false`; bcrypt hash; never returned through API responses)
+- `role` (String, enum `['buyer', 'agent', 'admin']`, default `'buyer'`)
+- `createdAt`, `updatedAt` (Mongoose timestamps)
+
+**Indexes:**
+- `email` (unique)
+- `role` (1)
+
+**Explicitly not in S4:** phone, avatar, bio, email verification, login-failure counters, session fields, profile fields.
+
+## Session Schema (S4)
+
+Collection: `sessions`
+
+**Fields:**
+- `_id` (ObjectId) — equals the refresh token's `jti`
+- `userId` (ObjectId, ref `'User'`, required)
+- `tokenHash` (String, required, unique) — SHA-256 hash of the refresh JWT; raw refresh tokens are never stored
+- `familyId` (String, required) — rotation family; one family per login
+- `expiresAt` (Date, required) — refresh-token expiry (issued + 7 days)
+- `revokedAt` (Date, nullable) — set on rotation, logout, or family revocation
+- `createdAt` (Mongoose timestamp)
+
+**Indexes:**
+- `userId` (1)
+- `tokenHash` (unique)
+- `familyId` (1)
+- `expiresAt` (TTL, `expireAfterSeconds: 0`) — MongoDB removes expired sessions automatically
+
+**Rotation semantics:** refresh revokes the presented session and creates its successor in the same family; presenting an already-revoked refresh token triggers reuse detection and revokes the entire family. Only safe metadata (userId, familyId, timestamp) is ever logged.
+
+**Property relationship invariant:** `Property.agent` references `User._id`. All seeded properties reference the fixed agent id `64b000000000000000000001`; S4.1 seeds that exact user id so existing references remain valid. S1/S2 property APIs must not populate `agent` (unchanged from the S1 note above).

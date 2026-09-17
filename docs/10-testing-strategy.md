@@ -13,7 +13,10 @@
   - `health.test.js`: System health endpoint.
   - `property.test.js`: Mocked integration tests for search, filtering, pagination, sorting, validation, and detail endpoint guarantees.
   - `property.mongo.test.js`: Real MongoDB in-memory database tests for text search, GeoJSON spatial queries, multi-filter combinations, image array ordering, and NoSQL injection security.
+  - `auth.test.js` (planned, S4.1): mocked integration tests for registration validation, duplicate email, role-escalation-ignored, login enumeration parity, `requireAuth` / `requireRole`, and the auth rate-limiter envelope.
+  - `auth.mongo.test.js` (planned, S4.1): real MongoDB tests for the session lifecycle — refresh rotation, reuse detection and family revocation, expired refresh, logout idempotency and cookie clearing, `/me`, and the `sessions.expiresAt` TTL index.
 - Current status: 34 tests passing.
+- S1/S2 regression gate: the existing 34 property/health tests must remain unmodified and green throughout S4.
 
 ### Component & Frontend
 - React UI components, forms, and interaction states.
