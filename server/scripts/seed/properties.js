@@ -8,6 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 import Property from '../../src/models/Property.js';
+import { seedUsers } from "./users.js";
 
 const DB_URI = process.env.MONGODB_URI;
 
@@ -723,6 +724,9 @@ export const seedDB = async () => {
     console.log('Clearing existing properties...');
     await Property.deleteMany({});
     console.log('✅ Cleared properties');
+
+    console.log("Seeding deterministic development users...");
+    await seedUsers();
 
     console.log('Inserting seed data...');
     await Property.insertMany(seedProperties);

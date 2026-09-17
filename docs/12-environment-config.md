@@ -32,6 +32,17 @@ Only variables explicitly required by the frontend build should be exposed to th
 - Never commit real values; `.env.example` contains placeholders only.
 
 ## Development seed identities (S4)
+- Development accounts are seeded by `server/scripts/seed/users.js`, which is the single source of truth for these identities. `server/scripts/seed/properties.js` invokes it, so `npm run seed` in `server/` seeds users and properties together.
 - S4.1 provides a production-guarded dev user seed with fixed ids: agent `64b000000000000000000001` (matches every seeded `Property.agent` reference), admin `64b000000000000000000002`, optional buyer `64b000000000000000000003`.
 - Dev-only identities use the reserved `.test` email TLD and must never be provisioned in production.
 - Production agent/admin accounts are provisioned by the future controlled admin mechanism — never through public registration or the dev seed.
+
+**Development / QA only** — seeded login credentials:
+
+| Role | Development email | Development password |
+|---|---|---|
+| Admin | `admin@homehunt.test` | `DevPassword123!` |
+| Agent | `agent@homehunt.test` | `DevPassword123!` |
+| Buyer | `buyer@homehunt.test` | `DevPassword123!` |
+
+These credentials exist only in local development databases seeded by `server/scripts/seed/users.js`. They are not production credentials and must never be provisioned in, or relied upon by, a production environment.
