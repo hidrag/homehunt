@@ -138,3 +138,38 @@ Collection: `sessions`
 **Rotation semantics:** refresh revokes the presented session and creates its successor in the same family; presenting an already-revoked refresh token triggers reuse detection and revokes the entire family. Only safe metadata (userId, familyId, timestamp) is ever logged.
 
 **Property relationship invariant:** `Property.agent` references `User._id`. All seeded properties reference the fixed agent id `64b000000000000000000001`; S4.1 seeds that exact user id so existing references remain valid. S1/S2 property APIs must not populate `agent` (unchanged from the S1 note above).
+
+## Bookmark Schema (S5)
+
+Collection: `bookmarks`
+
+**Fields:**
+- `_id` (ObjectId)
+- `user` (ObjectId, ref `'User'`, required)
+- `property` (ObjectId, ref `'Property'`, required)
+- `createdAt`, `updatedAt` (Mongoose timestamps)
+
+**Indexes:**
+- `{ user: 1, property: 1 }` (unique) — prevents duplicate bookmarks
+- `{ user: 1, createdAt: -1 }` — list ordering, newest first
+
+## Inquiry Schema (S5)
+
+Collection: `inquiries`
+
+**Fields:**
+- `_id` (ObjectId)
+- `property` (ObjectId, ref `'Property'`, required)
+- `buyer` (ObjectId, ref `'User'`, required)
+- `agent` (ObjectId, ref `'User'`, required) — derived server-side from `Property.agent`
+- `name` (String, required, trimmed, max 120)
+- `email` (String, required, trimmed, lowercase, max 254)
+- `phone` (String, optional, trimmed, max 20)
+- `message` (String, required, trimmed, min 10, max 2000)
+- `status` (String, enum `['pending', 'responded', 'closed']`, default `'pending'`)
+- `createdAt`, `updatedAt` (Mongoose timestamps)
+
+**Indexes:**
+- `{ buyer: 1, createdAt: -1 }` — buyer inquiry listing, newest first
+- `{ agent: 1, createdAt: -1 }` — agent inquiry inbox (S6), newest first
+- `{ property: 1 }` — property-scoped lookups

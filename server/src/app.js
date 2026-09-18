@@ -4,6 +4,8 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import propertyRoutes from './routes/property.routes.js';
 import authRoutes from "./routes/auth.routes.js";
+import bookmarkRoutes from "./routes/bookmark.routes.js";
+import inquiryRoutes from "./routes/inquiry.routes.js";
 
 const app = express();
 
@@ -27,6 +29,8 @@ app.use(express.json());
 // API Routes
 app.use("/api/auth", authRoutes);
 app.use('/api/properties', propertyRoutes);
+app.use("/api/bookmarks", bookmarkRoutes);
+app.use("/api/inquiries", inquiryRoutes);
 
 // Health Check API
 app.get('/api/health', (req, res) => {

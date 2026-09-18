@@ -115,6 +115,20 @@ Security implications: Bounded brute-force attempts per IP; no user-enumeration 
 Scope: S4.1 `app.js` limiter wiring and auth routes.
 Date: Sprint 4 (S4.0)
 
+## ADR-017 — Bookmark data architecture and hydration pattern
+Status: Accepted
+Decision: Model bookmarks as an explicit `(user, property)` collection with a unique compound index `{ user: 1, property: 1 }` and ordering index `{ user: 1, createdAt: -1 }`. Hydrate client-side saved state using a dedicated, lightweight endpoint (`GET /api/bookmarks/ids`) returning only property ID strings, stored in Redux with optimistic UI toggles and per-property in-flight guards.
+Reason: Prevents duplicate bookmarks at the database constraint level. Using a lightweight IDs endpoint avoids fetching full property documents across pages, preventing unnecessary payload overhead while providing cross-component bookmark state (cards, detail view, header count).
+Date: Sprint 5
+Affected areas: `server/src/models/Bookmark.js`, `server/src/services/bookmark.service.js`, `client/src/features/bookmarks/bookmarksSlice.js`, `client/src/components/ui/BookmarkButton.jsx`
+
+## ADR-018 — Buyer inquiries and server-authoritative agent derivation
+Status: Accepted
+Decision: Persist buyer inquiries in an `inquiries` collection referencing property, buyer, and agent. In `POST /api/inquiries`, the `buyer` is strictly bound to `req.user.id`, and `agent` is derived server-side from `Property.findById(propertyId).agent`. The client cannot specify `buyer`, `agent`, or `status` (which is forced to `'pending'`).
+Reason: Critical authorization and integrity rule: buyers must never be allowed to route an inquiry to arbitrary agents or impersonate other users. Deriving the agent server-side ensures authoritative routing and prevents data tampering.
+Date: Sprint 5
+Affected areas: `server/src/models/Inquiry.js`, `server/src/services/inquiry.service.js`, `server/src/controllers/inquiry.controller.js`, `client/src/pages/MyInquiries.jsx`
+
 ## Change policy
 New architectural decisions must be appended here with:
 - ADR number

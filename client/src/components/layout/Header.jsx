@@ -2,12 +2,13 @@ import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { logoutUser } from "../../features/auth/authSlice";
-import { LogOut, User } from "lucide-react";
+import { LogOut, User, Heart, MessageSquare } from "lucide-react";
 
 const Header = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useSelector((state) => state.auth);
+  const bookmarkCount = useSelector((state) => state.bookmarks.ids.length);
 
   const handleLogout = async () => {
     await dispatch(logoutUser());
@@ -30,6 +31,25 @@ const Header = () => {
 
           {isAuthenticated && user ? (
             <div className="flex items-center space-x-4">
+              <Link
+                to="/bookmarks"
+                className="flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors"
+              >
+                <Heart className="h-4 w-4" />
+                <span>Saved</span>
+                {bookmarkCount > 0 && (
+                  <span className="ml-0.5 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-indigo-100 px-1.5 text-xs font-semibold text-indigo-700">
+                    {bookmarkCount}
+                  </span>
+                )}
+              </Link>
+              <Link
+                to="/inquiries"
+                className="flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors"
+              >
+                <MessageSquare className="h-4 w-4" />
+                <span>Inquiries</span>
+              </Link>
               {user.role === "admin" && (
                 <Link
                   to="/admin"

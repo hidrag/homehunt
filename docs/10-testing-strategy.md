@@ -13,10 +13,14 @@
   - `health.test.js`: System health endpoint.
   - `property.test.js`: Mocked integration tests for search, filtering, pagination, sorting, validation, and detail endpoint guarantees.
   - `property.mongo.test.js`: Real MongoDB in-memory database tests for text search, GeoJSON spatial queries, multi-filter combinations, image array ordering, and NoSQL injection security.
-  - `auth.test.js` (planned, S4.1): mocked integration tests for registration validation, duplicate email, role-escalation-ignored, login enumeration parity, `requireAuth` / `requireRole`, and the auth rate-limiter envelope.
-  - `auth.mongo.test.js` (planned, S4.1): real MongoDB tests for the session lifecycle — refresh rotation, reuse detection and family revocation, expired refresh, logout idempotency and cookie clearing, `/me`, and the `sessions.expiresAt` TTL index.
-- Current status: 34 tests passing.
-- S1/S2 regression gate: the existing 34 property/health tests must remain unmodified and green throughout S4.
+  - `auth.mongo.test.js`: Real MongoDB tests for User/Session schemas, registration, login (timing parity), refresh rotation, reuse detection, family revocation, logout idempotency, `/me`, and `requireRole`.
+  - `auth.ratelimit.test.js`: Dedicated rate-limiter test enforcing 10 requests per 15-minute window with 429 status.
+  - `bookmark.test.js`: Mocked/API integration tests for bookmark endpoints (auth, validation, idempotent create/delete, pagination, own-user scoping).
+  - `bookmark.mongo.test.js`: Real MongoDB database tests for Bookmark schema, unique compound index, duplicate prevention, cross-user isolation, ordering, and hydration ID listing.
+  - `inquiry.test.js`: Mocked/API integration tests for inquiry endpoints (auth, validation, server-side agent derivation, status forcing, pagination).
+  - `inquiry.mongo.test.js`: Real MongoDB database tests for Inquiry schema, contact snapshot persistence, index verification, and clean error handling without orphan records.
+- Current status: 105 tests passing across 9 test suites.
+- Regression gate: all prior sprint test suites (34 S1–S3 tests + 19 S4 auth tests) remain unmodified and green throughout S5.
 
 ### Component & Frontend
 - React UI components, forms, and interaction states.

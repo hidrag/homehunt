@@ -4,6 +4,8 @@ import { MapPin, Bed, Bath, Square, ArrowLeft, Building, ShieldCheck } from 'luc
 import propertyApi from '../services/propertyApi';
 import PropertyGallery from "../components/ui/PropertyGallery";
 import PropertyMap from "../components/ui/PropertyMap";
+import BookmarkButton from "../components/ui/BookmarkButton";
+import InquiryForm from "../components/ui/InquiryForm";
 
 const ListingDetail = () => {
   const { id } = useParams();
@@ -207,13 +209,18 @@ const ListingDetail = () => {
 
         {/* Right Sidebar - Pricing & Overview Details */}
         <div className="lg:col-span-1">
-          <div className="sticky top-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="lg:sticky lg:top-6 space-y-6">
+            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
             <p className="text-3xl font-bold text-indigo-700">
               {formatPrice(property.price)}
             </p>
-            <p className="mb-6 text-sm text-gray-500">
+            <p className="mb-4 text-sm text-gray-500">
               {property.listingType === "rent" ? "Per Month" : "Listed Price"}
             </p>
+
+            <div className="mb-6">
+              <BookmarkButton propertyId={property._id} className="shadow-sm" />
+            </div>
 
             <div className="space-y-4 border-t border-gray-100 pt-4 text-sm">
               <div className="flex items-center justify-between">
@@ -241,6 +248,9 @@ const ListingDetail = () => {
                 </span>
               </div>
             </div>
+            </div>
+
+            <InquiryForm propertyId={property._id} />
           </div>
         </div>
       </div>

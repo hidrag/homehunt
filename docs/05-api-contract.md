@@ -159,8 +159,118 @@ All endpoints use the standard success/error envelopes defined above. "Set-Cooki
 `VALIDATION_ERROR`, `EMAIL_TAKEN`, `INVALID_CREDENTIALS`, `UNAUTHORIZED`, `INVALID_REFRESH`, `REFRESH_EXPIRED`, `REFRESH_TOKEN_REUSED`, `FORBIDDEN`, `RATE_LIMITED`.
 Existing codes (`NOT_FOUND`, `INVALID_ID`, `INTERNAL_SERVER_ERROR`) remain unchanged.
 
-### Ownership convention (future S5+ resources)
-Protected resource endpoints must define their required authentication and role/ownership rules. The repository-wide convention is `requireOwnership(resource, ownerField)`: `req.user.id` must equal `resource[ownerField]`, otherwise `403 FORBIDDEN`. No S4 endpoint implements ownership checks because S4 introduces no agent-owned resource.
+## Bookmark API (S5)
+
+All bookmark endpoints require authentication (`requireAuth` middleware). User identity is always extracted from `req.user.id`.
+
+### GET /api/bookmarks
+- Auth: Required (`requireAuth`).
+- Query: `page` (default 1, min 1), `limit` (default 10, min 1, max 50).
+- Success `200`:
+```json
+{
+  "success": true,
+  "data": {
+    "bookmarks": [
+      {
+        "_id": "...",
+        "user": "...",
+        "property": {
+          "_id": "...",
+          "title": "...",
+          "price": 5000000,
+          "propertyType": "apartment",
+          "listingType": "sale",
+          "status": "available",
+          "images": ["..."],
+          "address": { "city": "...", "state": "..." },
+          "bedrooms": 3,
+          "bathrooms": 2,
+          "area": 1500,
+          "createdAt": "..."
+        },
+        "createdAt": "...",
+        "updatedAt": "..."
+      }
+    ],
+    "pagination": { "total": 1, "page": 1, "pages": 1, "limit": 10 }
+  }
+}
+```
+- Populates property summary only; never exposes agent user documents.
+
+### POST /api/bookmarks
+- Auth: Required (`requireAuth`).
+- Body: `{ "propertyId": "<valid ObjectId>" }`.
+- Success `201` (new bookmark) or `200` (already existed, idempotent):
+```json
+{
+  "success": true,
+  "data": {
+    "bookmark": { "_id": "...", "user": "...", "property": "...", "createdAt": "...", "updatedAt": "..." },
+    "alreadyExists": false
+  }
+}
+```
+- Errors: `400 VALIDATION_ERROR` (missing propertyId), `400 INVALID_ID` (malformed ObjectId), `404 NOT_FOUND` (unknown property).
+
+### DELETE /api/bookmarks/:propertyId
+- Auth: Required (`requireAuth`).
+- Param: `propertyId`.
+- Success `200`: `{ "success": true, "data": { "removed": true } }` (or `false` if non-existent). Idempotent.
+- Errors: `400 INVALID_ID` (malformed ObjectId).
+
+### GET /api/bookmarks/ids
+- Auth: Required (`requireAuth`).
+- Success `200`: `{ "success": true, "data": { "ids": ["<propertyId>", ...] } }`.
+- Lightweight array of bookmarked property ID strings for frontend hydration.
+
+## Inquiry API (S5)
+
+All inquiry endpoints require authentication (`requireAuth` middleware).
+
+### POST /api/inquiries
+- Auth: Required (`requireAuth`).
+- Body: `{ "propertyId": "...", "name": "...", "email": "...", "phone": "...", "message": "..." }`.
+- Validation:
+  - `propertyId`: required valid ObjectId, must reference an existing property with an assigned agent.
+  - `name`: required, 1–120 characters, trimmed.
+  - `email`: required, valid email format, max 254 characters, trimmed, lowercase.
+  - `phone`: optional, max 20 characters, trimmed.
+  - `message`: required, 10–2000 characters, trimmed.
+- Security Invariants:
+  - `buyer` is forced to `req.user.id`.
+  - `agent` is derived server-side from `property.agent` (never client-specified).
+  - `status` is forced to `pending`.
+- Success `201`:
+```json
+{
+  "success": true,
+  "data": {
+    "inquiry": {
+      "_id": "...",
+      "property": "...",
+      "buyer": "...",
+      "agent": "...",
+      "name": "...",
+      "email": "...",
+      "phone": "...",
+      "message": "...",
+      "status": "pending",
+      "createdAt": "...",
+      "updatedAt": "..."
+    }
+  }
+}
+```
+- Errors: `400 VALIDATION_ERROR`, `400 INVALID_ID`, `404 NOT_FOUND`.
+
+### GET /api/inquiries
+- Auth: Required (`requireAuth`).
+- Returns only inquiries where `buyer == req.user.id`.
+- Query: `page` (default 1), `limit` (default 10, max 50).
+- Ordering: `createdAt DESC`, then `_id DESC`.
+- Success `200`: Paginated inquiries with populated property summary (`title`, `price`, `images`, `address.city`, `address.state`, `listingType`).
 
 ## Authorization
 Every protected endpoint must explicitly define required authentication and role/ownership rules.
