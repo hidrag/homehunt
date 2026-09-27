@@ -9,7 +9,7 @@ A production-style MERN real-estate listing and discovery platform.
 - **Authentication**: JWT with HTTP-only cookies (S4)
 - **Maps**: Leaflet.js with OpenStreetMap
 - **Images**: Remote CDN assets with defensive fallbacks (Cloudinary user uploads planned for S13)
-- **Status**: Sprint 3 Complete (Gallery, Maps & Property Experience)
+- **Status**: Sprint 6 Complete (Agent System — listing CRUD, agent dashboard & inquiry inbox)
 
 ## Repository structure
 

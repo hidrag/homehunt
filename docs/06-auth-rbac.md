@@ -37,7 +37,7 @@ Both must be enforced server-side.
 | Verify properties | No | No | Yes |
 | View platform analytics | No | Limited | Yes |
 
-Ownership checks are required for agent-owned resources.
+Ownership checks are required for agent-owned resources. Implemented in S6 via `requireOwnership(Model, ownerField, { allowAdmin })`: agents manage only their own listings; admins bypass the ownership comparison for properties ("Edit any property"). Inquiry status management is strictly agent-scoped (no admin bypass) pending the S7 admin platform.
 
 ## S4.0 approved implementation decisions
 Source: ADR-012…ADR-016 in `docs/13-decisions-log.md` (approved S4.0 architecture).

@@ -13,7 +13,7 @@ Two-week sprints are the default planning unit. Duration is a planning framework
 | S3 | Maps, Gallery & Property Experience | [x] Complete |
 | S4 | Authentication & RBAC | [x] Complete |
 | S5 | Buyer Features | [x] Complete |
-| S6 | Agent System | [ ] Planned |
+| S6 | Agent System | [x] Complete |
 | S7 | Admin Platform & Moderation | [ ] Planned |
 | S8 | Visit Scheduling & Email Infrastructure | [ ] Planned |
 | S9 | Real-time Chat | [ ] Planned |
@@ -27,9 +27,9 @@ Two-week sprints are the default planning unit. Duration is a planning framework
 | S17 | Recommendation Engine — Post-v1 | [ ] Planned |
 
 ## Status
-Current sprint: S5 — Buyer Features (Bookmarks and Buyer Inquiries complete; ready for human review).
-Next sprint: S6 — Agent System.
-S4 (Authentication & RBAC) is complete.
+Current sprint: S6 — Agent System (listing CRUD, agent dashboard, inquiry inbox; ready for human review).
+Next sprint: S7 — Admin Platform & Moderation.
+S4 (Authentication & RBAC) and S5 (Buyer Features) are complete.
 
 Legend:
 - `[ ]` Planned

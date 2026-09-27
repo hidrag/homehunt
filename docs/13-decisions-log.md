@@ -129,6 +129,20 @@ Reason: Critical authorization and integrity rule: buyers must never be allowed 
 Date: Sprint 5
 Affected areas: `server/src/models/Inquiry.js`, `server/src/services/inquiry.service.js`, `server/src/controllers/inquiry.controller.js`, `client/src/pages/MyInquiries.jsx`
 
+## ADR-019 — requireOwnership middleware and S6 ownership enforcement
+Status: Accepted
+Decision: Implement the documented `requireOwnership(resource, ownerField)` convention as `server/src/middlewares/ownership.middleware.js`. It loads the target document by `req.params.id`, validates the ObjectId (`400 INVALID_ID`), returns `404 NOT_FOUND` for unknown documents, and compares `resource[ownerField]` with `req.user.id` (`403 FORBIDDEN` otherwise). `allowAdmin: true` lets admins bypass the comparison. The loaded document is forwarded as `req.resource` so controllers and services never re-query.
+Reason: docs/03-architecture.md mandated the convention; docs/06-auth-rbac.md grants agents "Create/Edit own property" and admins "Edit any property". Centralizing the check prevents per-route authorization drift.
+Date: Sprint 6
+Affected areas: `server/src/middlewares/ownership.middleware.js`, `server/src/routes/property.routes.js`, `server/src/routes/inquiry.routes.js`
+
+## ADR-020 — Property delete semantics
+Status: Accepted
+Decision: `DELETE /api/properties/:id` deletes the property and removes bookmarks referencing it; inquiries are retained as business records (their property population resolves to null).
+Reason: Bookmarks are pure references with no standalone value once the listing is gone; inquiries are communication history that must survive listing removal.
+Date: Sprint 6
+Affected areas: `server/src/services/property.service.js`
+
 ## Change policy
 New architectural decisions must be appended here with:
 - ADR number

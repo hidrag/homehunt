@@ -78,6 +78,38 @@ export const propertyApi = {
     const response = await api.get(`/properties/${id}`, options);
     return response.data;
   },
+
+  /**
+   * Create a property listing (agent/admin; ownership derived server-side)
+   */
+  createProperty: async (payload) => {
+    const response = await api.post('/properties', payload);
+    return response.data;
+  },
+
+  /**
+   * Fetch the authenticated agent's own listings (agent dashboard)
+   */
+  getMyProperties: async (params = {}) => {
+    const response = await api.get('/properties/mine', { params });
+    return response.data;
+  },
+
+  /**
+   * Partially update a listing (owner or admin)
+   */
+  updateProperty: async (id, payload) => {
+    const response = await api.patch(`/properties/${id}`, payload);
+    return response.data;
+  },
+
+  /**
+   * Delete a listing (owner or admin)
+   */
+  deleteProperty: async (id) => {
+    const response = await api.delete(`/properties/${id}`);
+    return response.data;
+  },
 };
 
 export default propertyApi;

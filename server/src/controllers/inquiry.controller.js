@@ -72,3 +72,44 @@ export const listInquiries = async (req, res) => {
     return handleError(res, err);
   }
 };
+
+/**
+ * GET /api/inquiries/agent
+ * List inquiries addressed to the authenticated agent (paginated, S6)
+ */
+export const listAgentInquiries = async (req, res) => {
+  try {
+    let page = parseInt(req.query.page, 10);
+    let limit = parseInt(req.query.limit, 10);
+
+    if (isNaN(page) || page < 1) page = 1;
+    if (isNaN(limit) || limit < 1) limit = 10;
+    if (limit > 50) limit = 50;
+
+    const result = await inquiryService.listForAgent(req.user.id, page, limit);
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (err) {
+    return handleError(res, err);
+  }
+};
+
+/**
+ * PATCH /api/inquiries/:id/status
+ * Update the status of an inquiry managed by the authenticated agent (S6)
+ */
+export const updateInquiryStatus = async (req, res) => {
+  try {
+    const inquiry = await inquiryService.updateInquiryStatus(req.resource, req.body?.status);
+
+    return res.status(200).json({
+      success: true,
+      data: { inquiry },
+    });
+  } catch (err) {
+    return handleError(res, err);
+  }
+};

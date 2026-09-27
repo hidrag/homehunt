@@ -14,6 +14,8 @@ import Listings from "./pages/Listings";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Admin from "./pages/Admin";
+import AgentDashboard from "./pages/AgentDashboard";
+import ListingForm from "./pages/ListingForm";
 import ListingDetail from "./pages/ListingDetail";
 import Bookmarks from "./pages/Bookmarks";
 import MyInquiries from "./pages/MyInquiries";
@@ -68,6 +70,30 @@ function AppContent() {
             element={
               <ProtectedRoute allowedRoles={["admin"]}>
                 <Admin />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="agent"
+            element={
+              <ProtectedRoute allowedRoles={["agent", "admin"]}>
+                <AgentDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="agent/listings/new"
+            element={
+              <ProtectedRoute allowedRoles={["agent", "admin"]}>
+                <ListingForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="agent/listings/:id/edit"
+            element={
+              <ProtectedRoute allowedRoles={["agent", "admin"]}>
+                <ListingForm />
               </ProtectedRoute>
             }
           />

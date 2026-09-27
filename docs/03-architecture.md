@@ -32,7 +32,7 @@ This is intentionally a simple monorepo-style repository without a workspace/bui
 - Refresh-token rotation with reuse detection and family revocation: one family per login, strict rotation (no grace window), server-side session state in a separate `sessions` collection (SHA-256 token hashes, TTL cleanup).
 - Server-side authorization only: `requireAuth` (reads the access cookie, attaches `req.user = { id, role }`) and `requireRole(...roles)` (403 `FORBIDDEN`) sit in the middleware layer between routes and controllers. Ownership checks for future agent-owned resources use the `requireOwnership(resource, ownerField)` convention.
 - Frontend route guards are UX only, never a security boundary.
-- Implementation status: S4.1 (not yet implemented).
+- Implementation status: S4.1 complete. S6 adds `requireOwnership(Model, ownerField, { allowAdmin })` (`server/src/middlewares/ownership.middleware.js`): agent ownership with admin override on property mutations, and agent-scoped inquiry management.
 
 ## Images and files
 - S1–S3: Curated remote HTTPS image URLs (Unsplash CDN) stored in MongoDB, with defensive frontend fallback components to prevent broken images or layout collapse.

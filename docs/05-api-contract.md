@@ -272,6 +272,56 @@ All inquiry endpoints require authentication (`requireAuth` middleware).
 - Ordering: `createdAt DESC`, then `_id DESC`.
 - Success `200`: Paginated inquiries with populated property summary (`title`, `price`, `images`, `address.city`, `address.state`, `listingType`).
 
+## Property Management API (S6)
+
+Agent/Admin listing management. All mutating endpoints require authentication (`requireAuth`) and role `agent` or `admin` (`requireRole('agent','admin')` → `403 FORBIDDEN` for buyers). Ownership is enforced by the `requireOwnership(Model, ownerField)` middleware (`server/src/middlewares/ownership.middleware.js`): agents may only manage their own listings; admins may manage any property ("Edit any property" per `docs/06-auth-rbac.md`).
+
+**POST /api/properties**
+- Auth: `requireAuth` + `requireRole('agent','admin')`.
+- Body: full property payload — `title`, `description`, `price`, `propertyType`, `listingType`, `location` (`{ "type": "Point", "coordinates": [lng, lat] }`), `address` (`street`, `city`, `state`, `zipCode`, optional `country` default `"India"`), optional `bedrooms`, `bathrooms`, `area`, `amenities` (array of strings), `images` (array of remote `http(s)` URLs).
+- Server invariants:
+  - `agent` is forced to `req.user.id`; client-supplied `agent`, `_id`, `status`, and unknown fields are ignored.
+  - `status` always starts as `available`.
+- Validation limits: `title` ≤ 200, `description` ≤ 5000, `street` ≤ 200, `city`/`state` ≤ 100, `zipCode` ≤ 20, `country` ≤ 100; `price`/`bedrooms`/`bathrooms`/`area` ≥ 0 finite numbers; `amenities` ≤ 30 entries (≤ 100 chars each); `images` ≤ 20 entries (≤ 500 chars each, must match `http(s)://`); `location` must be a valid GeoJSON Point with in-range coordinates (lng ∈ [-180,180], lat ∈ [-90,90]).
+- Success `201`:
+```json
+{ "success": true, "data": { "property": { "...": "complete Property object" } } }
+```
+- Errors: `400 VALIDATION_ERROR`, `401 UNAUTHORIZED`, `403 FORBIDDEN`.
+
+**GET /api/properties/mine**
+- Auth: `requireAuth` + `requireRole('agent','admin')`.
+- Returns only properties where `agent == req.user.id` (all statuses).
+- Query: `page` (default 1, min 1), `limit` (default 10, min 1, max 50).
+- Ordering: `createdAt DESC`, then `_id DESC`.
+- Success `200`: `{ "properties": [...], "pagination": { "total", "page", "pages", "limit" } }`.
+
+**PATCH /api/properties/:id**
+- Auth: `requireAuth` + `requireRole('agent','admin')` + ownership (owning agent or admin).
+- Partial update: only supplied fields are validated and updated; at least one updatable field is required, otherwise `400 VALIDATION_ERROR`. Updatable: `title`, `description`, `price`, `propertyType`, `listingType`, `status` (any enum value), `location` (full GeoJSON Point), `address` (full address object), `bedrooms`, `bathrooms`, `area`, `amenities`, `images`. `agent` is immutable through this API.
+- Success `200`: `{ "success": true, "data": { "property": { "...": "complete Property object" } } }`.
+- Errors: `400 INVALID_ID` (malformed id), `400 VALIDATION_ERROR`, `401 UNAUTHORIZED`, `403 FORBIDDEN` (non-owner agent), `404 NOT_FOUND`.
+
+**DELETE /api/properties/:id**
+- Auth: same as PATCH.
+- Behavior: deletes the property and removes any bookmarks referencing it (bookmarks are pure references). Inquiries are retained as business records; their `property` population resolves to `null`.
+- Success `200`: `{ "success": true, "data": { "deleted": true } }`.
+- Errors: `400 INVALID_ID`, `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 NOT_FOUND`.
+
+## Agent Inquiry API (S6)
+
+**GET /api/inquiries/agent**
+- Auth: `requireAuth` + `requireRole('agent','admin')`.
+- Returns only inquiries where `agent == req.user.id` (the agent's inbox).
+- Query: `page` (default 1, min 1), `limit` (default 10, min 1, max 50). Ordering: `createdAt DESC`, then `_id DESC`.
+- Success `200`: paginated inquiries with populated property summary (`title`, `price`, `images`, `address.city`, `address.state`, `listingType`).
+
+**PATCH /api/inquiries/:id/status**
+- Auth: `requireAuth` + `requireRole('agent','admin')` + ownership (`agent == req.user.id`; admins manage exactly the inquiries addressed to them — cross-agent inquiry administration is reserved for the S7 admin platform).
+- Body: `{ "status": "responded" | "closed" }`. `pending` is not accepted as a management transition (inquiries are created `pending`).
+- Success `200`: `{ "success": true, "data": { "inquiry": { "...": "updated Inquiry object" } } }`.
+- Errors: `400 INVALID_ID`, `400 VALIDATION_ERROR`, `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 NOT_FOUND`.
+
 ## Authorization
 Every protected endpoint must explicitly define required authentication and role/ownership rules.
 

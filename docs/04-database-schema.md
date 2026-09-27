@@ -90,6 +90,7 @@ The `Property` model enforces the following core domain fields:
 - `propertyType` (1)
 - `listingType` (1)
 - `title`, `description`, `address.city` (`text`)
+- `{ agent: 1, createdAt: -1 }` — agent dashboard listing (S6), newest first
 
 ### Text Index Limitations & Behavior (S2)
 The text index on `{ title: "text", description: "text", "address.city": "text" }` provides keyword search using MongoDB's `$text` operator.

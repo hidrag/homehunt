@@ -2,12 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { MessageSquare, Search } from 'lucide-react';
 import inquiryApi from '../services/inquiryApi';
-
-const STATUS_STYLES = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  responded: 'bg-green-100 text-green-800',
-  closed: 'bg-gray-100 text-gray-800',
-};
+import StatusBadge from '../components/ui/StatusBadge';
 
 const MyInquiries = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -174,13 +169,7 @@ const MyInquiries = () => {
                           </p>
                         )}
                       </div>
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider ${
-                          STATUS_STYLES[inquiry.status] || STATUS_STYLES.pending
-                        }`}
-                      >
-                        {inquiry.status}
-                      </span>
+                      <StatusBadge status={inquiry.status} />
                     </div>
 
                     <p className="mb-2 text-sm text-gray-600 line-clamp-2">

@@ -50,6 +50,14 @@ const Header = () => {
                 <MessageSquare className="h-4 w-4" />
                 <span>Inquiries</span>
               </Link>
+              {(user.role === "agent" || user.role === "admin") && (
+                <Link
+                  to="/agent"
+                  className="text-sm font-medium text-gray-600 hover:text-indigo-600"
+                >
+                  Dashboard
+                </Link>
+              )}
               {user.role === "admin" && (
                 <Link
                   to="/admin"

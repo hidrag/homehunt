@@ -86,6 +86,9 @@ propertySchema.index({ propertyType: 1 });
 propertySchema.index({ listingType: 1 });
 propertySchema.index({ title: 'text', description: 'text', 'address.city': 'text' });
 
+// Agent's own listings (S6 dashboard), newest first
+propertySchema.index({ agent: 1, createdAt: -1 });
+
 const Property = mongoose.model('Property', propertySchema);
 
 export default Property;

@@ -121,3 +121,64 @@ export const listForBuyer = async (buyerId, page = 1, limit = 10) => {
     },
   };
 };
+
+/**
+ * List inquiries addressed to the given agent (agent inbox, S6)
+ * @param {string} agentId
+ * @param {number} page
+ * @param {number} limit
+ * @returns {Promise<Object>}
+ */
+export const listForAgent = async (agentId, page = 1, limit = 10) => {
+  const skip = (page - 1) * limit;
+
+  const [inquiries, total] = await Promise.all([
+    Inquiry.find({ agent: agentId })
+      .sort({ createdAt: -1, _id: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate({
+        path: 'property',
+        select: {
+          title: 1,
+          price: 1,
+          images: 1,
+          'address.city': 1,
+          'address.state': 1,
+          listingType: 1,
+        },
+      })
+      .lean(),
+    Inquiry.countDocuments({ agent: agentId }),
+  ]);
+
+  return {
+    inquiries,
+    pagination: {
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+      limit,
+    },
+  };
+};
+
+const AGENT_MANAGED_STATUSES = ['responded', 'closed'];
+
+/**
+ * Update the status of an inquiry managed by the given agent (S6).
+ * Only forward transitions are allowed: `responded`, `closed`.
+ * @param {Object} inquiry - Mongoose document (req.resource)
+ * @param {string} status
+ * @returns {Promise<Object>}
+ */
+export const updateInquiryStatus = async (inquiry, status) => {
+  if (typeof status !== 'string' || !AGENT_MANAGED_STATUSES.includes(status)) {
+    throw { status: 400, code: 'VALIDATION_ERROR', message: 'Status must be one of: responded, closed' };
+  }
+
+  inquiry.status = status;
+  await inquiry.save();
+
+  return inquiry.toObject();
+};
