@@ -3,7 +3,6 @@ import Property from '../models/Property.js';
 
 const PROPERTY_TYPES = ['apartment', 'house', 'villa', 'condo', 'land'];
 const LISTING_TYPES = ['sale', 'rent'];
-const PROPERTY_STATUSES = ['available', 'under_offer', 'sold', 'rented'];
 
 const MAX_LENGTHS = {
   title: 200,
@@ -219,6 +218,8 @@ const validateCreateInput = (input) => {
  * Validates a partial property update into a sanitized patch
  * @param {Object} input
  * @returns {Object}
+ * @note Status is server-derived only; clients cannot update it directly
+ *       Changes must go through proper sale/rental workflow
  */
 const validateUpdateInput = (input) => {
   assertPayload(input);
@@ -234,7 +235,7 @@ const validateUpdateInput = (input) => {
   if (has('price')) sanitized.price = sanitizeNonNegativeNumber(input.price, 'Price');
   if (has('propertyType')) sanitized.propertyType = sanitizeEnum(input.propertyType, PROPERTY_TYPES, 'Property type');
   if (has('listingType')) sanitized.listingType = sanitizeEnum(input.listingType, LISTING_TYPES, 'Listing type');
-  if (has('status')) sanitized.status = sanitizeEnum(input.status, PROPERTY_STATUSES, 'Status');
+  // status is server-derived only; clients cannot change it directly
   if (has('location')) sanitized.location = sanitizeLocation(input.location);
   if (has('address')) sanitized.address = sanitizeAddress(input.address);
   if (has('bedrooms')) sanitized.bedrooms = sanitizeNonNegativeNumber(input.bedrooms, 'Bedrooms');

@@ -334,18 +334,17 @@ describe('Property CRUD API (S6)', () => {
       const res = await request(app)
         .patch(`/api/properties/${propertyId}`)
         .set('Cookie', cookie(agentCookie))
-        .send({ title: 'Renovated Sea View Apartment', price: 9100000, status: 'under_offer' });
+        .send({ title: 'Renovated Sea View Apartment', price: 9100000 });
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data.property.title).toBe('Renovated Sea View Apartment');
       expect(res.body.data.property.price).toBe(9100000);
-      expect(res.body.data.property.status).toBe('under_offer');
 
       const stored = await Property.findById(propertyId);
       expect(stored.title).toBe('Renovated Sea View Apartment');
       expect(stored.price).toBe(9100000);
-      expect(stored.status).toBe('under_offer');
+      expect(stored.status).toBe('available');
     });
 
     it('should leave unspecified fields untouched on partial update', async () => {
@@ -379,13 +378,13 @@ describe('Property CRUD API (S6)', () => {
       const res = await request(app)
         .patch(`/api/properties/${propertyId}`)
         .set('Cookie', cookie(adminCookie))
-        .send({ status: 'sold' });
+        .send({ title: 'Admin Corrected Title' });
 
       expect(res.status).toBe(200);
-      expect(res.body.data.property.status).toBe('sold');
+      expect(res.body.data.property.title).toBe('Admin Corrected Title');
 
       const stored = await Property.findById(propertyId);
-      expect(stored.status).toBe('sold');
+      expect(stored.title).toBe('Admin Corrected Title');
     });
 
     it('should return 400 when no valid fields are supplied', async () => {
@@ -506,4 +505,98 @@ describe('Property CRUD API (S6)', () => {
       expect(hasAgentIndex).toBe(true);
     });
   });
-});
+
+  /**
+   * Regression tests for S6 remediated defects
+   */
+
+  describe('S6 Property Status Protection', () => {
+    it('should reject status field in property PATCH requests', async () => {
+      const res = await request(app)
+        .patch(`/api/properties/${propertyId}`)
+        .set('Cookie', cookie(agentCookie))
+        .send({ status: 'sold' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      // Status should remain unchanged
+      const updated = await Property.findById(propertyId);
+      expect(updated.status).toBe('available');
+    });
+  });
+
+  describe('S6 Ownership Enforcement', () => {
+    it('should reject agent A updating agent B\'s property', async () => {
+      const res = await request(app)
+        .patch(`/api/properties/${propertyId}`)
+        .set('Cookie', cookie(otherAgentCookie))
+        .send({ title: 'Hacked Title' });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('FORBIDDEN');
+
+      // Agent A's property should be unchanged
+      const agentProp = await Property.findById(propertyId);
+      expect(agentProp.title).not.toBe('Hacked Title');
+      expect(agentProp.agent.toString()).toBe(agent._id.toString());
+    });
+
+    it('should reject agent A deleting agent B\'s property', async () => {
+      const res = await request(app)
+        .delete(`/api/properties/${propertyId}`)
+        .set('Cookie', cookie(otherAgentCookie));
+
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('FORBIDDEN');
+
+      // Property should still exist
+      const stillExists = await Property.exists({ _id: propertyId });
+      expect(stillExists).toBeTruthy();
+    });
+
+    it('should allow admin to update any property', async () => {
+      const res = await request(app)
+        .patch(`/api/properties/${propertyId}`)
+        .set('Cookie', cookie(adminCookie))
+        .send({ title: 'Admin Modified Title' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      const updated = await Property.findById(propertyId);
+      expect(updated.title).toBe('Admin Modified Title');
+    });
+
+    it('should allow admin to delete any property', async () => {
+      const res = await request(app)
+        .delete(`/api/properties/${propertyId}`)
+        .set('Cookie', cookie(adminCookie));
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(await Property.findById(propertyId)).toBeNull();
+    });
+  });
+
+  describe('S6 GeoJSON Coordinate Ordering', () => {
+    it('should accept coordinates in [longitude, latitude] order', async () => {
+      const res = await request(app)
+        .post('/api/properties')
+        .set('Cookie', cookie(agentCookie))
+        .send(validPropertyPayload({ location: { type: 'Point', coordinates: [72.8296, 19.0596] } }));
+
+      expect(res.status).toBe(201);
+    });
+
+    it('should accept coordinates swapped as [latitude, longitude] (documentation only)', async () => {
+          // The API accepts any finite numbers in valid ranges; the [lng, lat] convention
+          // is documented but not strictly enforced at validation. This test documents the behavior.
+          const res = await request(app)
+            .post('/api/properties')
+            .set('Cookie', cookie(agentCookie))
+            .send(validPropertyPayload({ location: { type: 'Point', coordinates: [19.0596, 72.8296] } }));
+
+          // Currently accepted since validation checks ranges but doesn't enforce ordering
+          expect(res.status).toBe(201);
+        });
+      });
+    });

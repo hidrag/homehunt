@@ -298,7 +298,7 @@ Agent/Admin listing management. All mutating endpoints require authentication (`
 
 **PATCH /api/properties/:id**
 - Auth: `requireAuth` + `requireRole('agent','admin')` + ownership (owning agent or admin).
-- Partial update: only supplied fields are validated and updated; at least one updatable field is required, otherwise `400 VALIDATION_ERROR`. Updatable: `title`, `description`, `price`, `propertyType`, `listingType`, `status` (any enum value), `location` (full GeoJSON Point), `address` (full address object), `bedrooms`, `bathrooms`, `area`, `amenities`, `images`. `agent` is immutable through this API.
+- Partial update: only supplied fields are validated and updated; at least one updatable field is required, otherwise `400 VALIDATION_ERROR`. Updatable: `title`, `description`, `price`, `propertyType`, `listingType`, `location` (full GeoJSON Point), `address` (full address object), `bedrooms`, `bathrooms`, `area`, `amenities`, `images`. `agent` is immutable through this API. `status` is server-managed: it is ignored on update (a payload supplying only `status` returns `400 VALIDATION_ERROR`); listing-status transitions belong to a future transactional workflow, not direct client PATCH.
 - Success `200`: `{ "success": true, "data": { "property": { "...": "complete Property object" } } }`.
 - Errors: `400 INVALID_ID` (malformed id), `400 VALIDATION_ERROR`, `401 UNAUTHORIZED`, `403 FORBIDDEN` (non-owner agent), `404 NOT_FOUND`.
 
