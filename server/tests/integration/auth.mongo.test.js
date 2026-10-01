@@ -423,6 +423,14 @@ describe('Real MongoDB Integration Tests — Authentication & RBAC (S4.1)', () =
         .set('Cookie', [`${AUTH_CONSTANTS.COOKIE_ACCESS}=invalid.access.token`]);
       expect(res.status).toBe(401);
       expect(res.body.error.code).toBe('UNAUTHORIZED');
+
+      // Malformed percent-encoding must be treated as a missing/invalid
+      // cookie, never as an uncaught URIError and 500 response.
+      res = await request(app)
+        .get('/api/auth/me')
+        .set('Cookie', [`${AUTH_CONSTANTS.COOKIE_ACCESS}=%E0%A4%A`]);
+      expect(res.status).toBe(401);
+      expect(res.body.error.code).toBe('UNAUTHORIZED');
     });
   });
 

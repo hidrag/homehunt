@@ -69,7 +69,14 @@ export const parseCookies = (cookieHeader) => {
   return cookieHeader.split(';').reduce((acc, pair) => {
     const [key, ...rest] = pair.trim().split('=');
     if (key) {
-      acc[key.trim()] = decodeURIComponent(rest.join('=') || '');
+      try {
+        acc[key.trim()] = decodeURIComponent(rest.join('=') || '');
+      } catch {
+        // Treat malformed cookie encoding as an absent cookie. Authentication
+        // middleware will return the standard 401 response instead of letting
+        // a client-controlled URIError become a 500.
+        return acc;
+      }
     }
     return acc;
   }, {});

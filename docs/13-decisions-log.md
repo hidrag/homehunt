@@ -143,6 +143,13 @@ Reason: Bookmarks are pure references with no standalone value once the listing 
 Date: Sprint 6
 Affected areas: `server/src/services/property.service.js`
 
+## ADR-021 — Admin provisioning and role management
+Status: Accepted
+Decision: Agent/admin accounts are created exclusively through `POST /api/admin/users` (admin-only, role whitelisted to `agent`/`admin`, whitelist-sanitized payload, bcrypt via the existing password utility, no session issued to the provisioned account). Role changes go through `PATCH /api/admin/users/:id/role` (admin-only, role whitelisted to `buyer`/`agent`/`admin`, target id validated, self-role-change rejected `403`, last-admin demotion rejected `403` server-side by counting admins before the write). Public `POST /api/auth/register` remains buyer-only and is not modified. Existing JWT semantics are preserved: the access token's `role` claim is honored until it expires (15 min) and refresh reissues the current role; sessions are not force-revoked on role change.
+Reason: docs/06-auth-rbac.md reserved "the future controlled admin mechanism (S7)" for provisioning. Centralizing provisioning/role mutation in one admin-only route pair keeps privilege changes auditable at one authorization gate, prevents registration role injection, and the self-demotion/last-admin guards prevent lockout of the platform's admin capability. Bounded-staleness role claims are the already-accepted S4 model (ADR-012/015); force-revocation would require session-store coupling deliberately deferred.
+Date: Sprint 7
+Affected areas: `server/src/services/admin.service.js`, `server/src/controllers/admin.controller.js`, `server/src/routes/admin.routes.js`, `client/src/pages/Admin.jsx`
+
 ## Change policy
 New architectural decisions must be appended here with:
 - ADR number

@@ -322,6 +322,88 @@ Agent/Admin listing management. All mutating endpoints require authentication (`
 - Success `200`: `{ "success": true, "data": { "inquiry": { "...": "updated Inquiry object" } } }`.
 - Errors: `400 INVALID_ID`, `400 VALIDATION_ERROR`, `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 NOT_FOUND`.
 
+## Admin API (S7)
+
+All `/api/admin/*` endpoints independently enforce `requireAuth` followed by `requireRole('admin')` — anonymous `401 UNAUTHORIZED`, buyer/agent `403 FORBIDDEN`. Frontend protection is never a security boundary. Pagination follows the project convention (`page` default 1 min 1, `limit` default 10 min 1 max 50; deterministic ordering `createdAt DESC`, then `_id DESC`; out-of-range pages return empty arrays with HTTP 200).
+
+**GET /api/admin/stats**
+- Auth: `requireAuth` + `requireRole('admin')`.
+- Purpose: lightweight platform overview for the admin dashboard. No historical analytics, trends, or aggregation infrastructure (S14 concern).
+- Success `200`:
+```json
+{
+  "success": true,
+  "data": {
+    "users": { "total": 5, "byRole": { "buyer": 2, "agent": 2, "admin": 1 } },
+    "properties": {
+      "total": 12,
+      "byStatus": { "available": 9, "under_offer": 1, "sold": 1, "rented": 1 },
+      "byListingType": { "sale": 8, "rent": 4 }
+    },
+    "inquiries": { "total": 7, "byStatus": { "pending": 3, "responded": 2, "closed": 2 } },
+    "recentProperties": [
+      { "_id": "...", "title": "...", "price": 8500000, "propertyType": "apartment", "listingType": "sale", "status": "available", "createdAt": "..." }
+    ],
+    "recentInquiries": [
+      { "_id": "...", "name": "...", "email": "...", "status": "pending", "createdAt": "...", "property": { "_id": "...", "title": "..." } }
+    ]
+  }
+}
+```
+- `recentProperties` / `recentInquiries` are the 5 newest documents (`createdAt DESC`, `_id DESC`). Deleted properties in `recentInquiries` resolve `property: null`.
+
+**GET /api/admin/users**
+- Auth: `requireAuth` + `requireRole('admin')`.
+- Query: `page`, `limit`, `role` (whitelist `buyer|agent|admin`; invalid values ignored), `search` (case-insensitive regex-escaped partial match on `name` or `email`; unknown fields ignored; raw query never reaches MongoDB).
+- Ordering: `createdAt DESC`, then `_id DESC`.
+- Success `200`: `{ "users": [ { "id", "name", "email", "role", "createdAt", "updatedAt" } ], "pagination": { "total", "page", "pages", "limit" } }`.
+- Serialization guarantee: `passwordHash` (and any other internal field) is never returned.
+
+**POST /api/admin/users** (controlled provisioning — ADR-021)
+- Auth: `requireAuth` + `requireRole('admin')`.
+- Body: `{ "name": string, "email": string, "password": string, "role": "agent" | "admin" }`.
+- Validation: `name` required ≤ 120; `email` format + uniqueness (case-insensitive); `password` 8–72 characters (bcrypt cost 10 via the existing password utility); `role` strictly whitelisted to `agent` or `admin`.
+- Never client-controlled: `_id`, `passwordHash`, `createdAt`, `updatedAt`, `role` values outside the whitelist, and any other model field — extra payload keys are ignored (whitelist sanitization in the service).
+- The created account receives no session/cookies (provisioning is not a login). Public `POST /api/auth/register` remains unchanged and buyer-only.
+- Success `201`: `{ "success": true, "data": { "user": { "id", "name", "email", "role" } } }`.
+- Errors: `400 VALIDATION_ERROR`, `409 EMAIL_TAKEN`, `401 UNAUTHORIZED`, `403 FORBIDDEN`.
+
+**PATCH /api/admin/users/:id/role** (role management — ADR-021)
+- Auth: `requireAuth` + `requireRole('admin')`.
+- Body: `{ "role": "buyer" | "agent" | "admin" }` — strictly whitelisted; any other payload field is ignored; `passwordHash` and other protected fields can never be written through this endpoint.
+- Server-side protections:
+  1. `400 INVALID_ID` for malformed target id.
+  2. `404 NOT_FOUND` for unknown target user.
+  3. `400 VALIDATION_ERROR` for missing/invalid role.
+  4. `403 FORBIDDEN` self-role-change: an admin cannot change their own role (prevents self-demotion lockout and any self-escalation path).
+  5. `403 FORBIDDEN` last-admin protection: the role change that would demote the only remaining admin is rejected (enforced server-side by counting admins before the write).
+- Success `200`: `{ "success": true, "data": { "user": { "id", "name", "email", "role" } } }`.
+- Token/session semantics: role changes are effective in the database immediately, but an already-issued access token carries its old `role` claim until it expires (15 minutes); the next refresh reissues the current role. Clients must not pretend the change is instant for live sessions.
+
+**GET /api/admin/properties**
+- Auth: `requireAuth` + `requireRole('admin')`.
+- Purpose: cross-listing moderation view (all agents' listings, all statuses).
+- Query: `page`, `limit`, `search` (`$text` on title/description/address.city), `city`, `status` (whitelist `available|under_offer|sold|rented`), `listingType` (`sale|rent`), `propertyType` (existing enum), `agent` (valid ObjectId filter). Invalid filter values are ignored.
+- Ordering: `createdAt DESC`, then `_id DESC`.
+- Success `200`: `{ "properties": [ { ...property, "agent": { "id", "name", "email", "role" } } ], "pagination": { ... } }`. `agent` populates only safe identity fields.
+- This endpoint is read-only. Admin listing edits/deletes reuse the existing S6 `PATCH/DELETE /api/properties/:id` with the `requireOwnership` admin override — there is no parallel admin mutation API. Property `status` remains protected exactly as in S6 (client-supplied `status` is ignored on update). No approve/reject/verify operations exist in S7.
+
+**GET /api/admin/inquiries**
+- Auth: `requireAuth` + `requireRole('admin')`.
+- Purpose: cross-agent inquiry administration.
+- Query: `page`, `limit`, `status` (whitelist `pending|responded|closed`).
+- Ordering: `createdAt DESC`, then `_id DESC`.
+- Success `200`: `{ "inquiries": [ { ...inquiry, "property": { "_id", "title", "price", "images", "address.city", "address.state", "listingType" } | null, "buyer": { "id", "name", "email" } | null, "agent": { "id", "name", "email" } | null } ], "pagination": { ... } }`.
+- Deleted properties/users resolve to `null`; consumers must handle it ("Listing no longer available").
+
+**PATCH /api/admin/inquiries/:id/status**
+- Auth: `requireAuth` + `requireRole('admin')` + `requireOwnership(Inquiry, 'agent', { allowAdmin: true })` (explicit admin route; the S6 agent route remains strictly agent-scoped and unchanged).
+- Body: `{ "status": "responded" | "closed" }` — same transition semantics as the S6 agent endpoint; `pending` is not accepted.
+- Success `200`: `{ "success": true, "data": { "inquiry": { ...updated } } }`.
+- Errors: `400 INVALID_ID`, `400 VALIDATION_ERROR`, `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 NOT_FOUND`.
+
+Admin error vocabulary reuses existing codes only: `UNAUTHORIZED`, `FORBIDDEN`, `VALIDATION_ERROR`, `EMAIL_TAKEN`, `INVALID_ID`, `NOT_FOUND`, `INTERNAL_SERVER_ERROR`.
+
 ## Authorization
 Every protected endpoint must explicitly define required authentication and role/ownership rules.
 

@@ -2,7 +2,7 @@ import api from '../lib/axios';
 
 /**
  * Maps frontend query parameters to backend API parameters
- * @param {Object} frontendParams 
+ * @param {Object} frontendParams
  * @returns {Object} backendParams
  */
 export const mapFrontendToBackendParams = (frontendParams = {}) => {

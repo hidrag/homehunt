@@ -21,7 +21,8 @@
   - `inquiry.mongo.test.js`: Real MongoDB database tests for Inquiry schema, contact snapshot persistence, index verification, and clean error handling without orphan records.
   - `property.crud.mongo.test.js`: Real MongoDB tests for S6 listing management (create/mine/update/delete, role gates, ownership violations, validation, server-derived agent and status, cascade bookmark cleanup, agent compound index).
   - `inquiry.agent.mongo.test.js`: Real MongoDB tests for the S6 agent inbox (agent-scoped listing, property summary population, ordering, status transitions, ownership violations, pagination clamps).
-- Current status: 160 tests passing across 11 test suites.
+  - `admin.mongo.test.js`: Real MongoDB tests for S7 admin authorization, stats, user management, provisioning, role protections, listing moderation, and cross-agent inquiry administration.
+- Current status: 198 tests passing across 12 test suites.
 - Regression gate: all prior sprint test suites (34 S1–S3 tests + 19 S4 auth tests) remain unmodified and green throughout S5.
 
 ### Component & Frontend

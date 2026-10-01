@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { AlertCircle, ArrowLeft } from 'lucide-react';
 import propertyApi from '../services/propertyApi';
@@ -135,6 +135,8 @@ const ListingForm = () => {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnPath = location.state?.fromAdmin || '/agent';
   const { user } = useSelector((state) => state.auth);
 
   const [formLoading, setFormLoading] = useState(isEdit);
@@ -266,7 +268,7 @@ const ListingForm = () => {
         await propertyApi.createProperty(payload);
       }
 
-      navigate('/agent');
+      navigate(returnPath);
     } catch (err) {
       console.error('Failed to save listing:', err);
       setSubmitError(
@@ -281,7 +283,7 @@ const ListingForm = () => {
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-6">
         <Link
-          to="/agent"
+          to={returnPath}
           className="inline-flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-indigo-600 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -305,7 +307,7 @@ const ListingForm = () => {
         <div className="rounded-lg bg-red-50 p-6 text-center">
           <h3 className="text-sm font-medium text-red-800">{formError}</h3>
           <Link
-            to="/agent"
+            to={returnPath}
             className="mt-4 inline-flex items-center rounded bg-red-100 px-4 py-2 text-sm font-medium text-red-800 hover:bg-red-200"
           >
             Back to Dashboard
@@ -691,7 +693,7 @@ const ListingForm = () => {
 
           <div className="flex flex-wrap items-center justify-end gap-3">
             <Link
-              to="/agent"
+              to={returnPath}
               className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
             >
               Cancel

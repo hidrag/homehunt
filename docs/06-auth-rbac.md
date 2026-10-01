@@ -37,7 +37,12 @@ Both must be enforced server-side.
 | Verify properties | No | No | Yes |
 | View platform analytics | No | Limited | Yes |
 
-Ownership checks are required for agent-owned resources. Implemented in S6 via `requireOwnership(Model, ownerField, { allowAdmin })`: agents manage only their own listings; admins bypass the ownership comparison for properties ("Edit any property"). Inquiry status management is strictly agent-scoped (no admin bypass) pending the S7 admin platform.
+Ownership checks are required for agent-owned resources. Implemented in S6 via `requireOwnership(Model, ownerField, { allowAdmin })`: agents manage only their own listings; admins bypass the ownership comparison for properties ("Edit any property"). Inquiry status management remains strictly agent-scoped on the S6 agent route; S7 adds a separate explicit admin route (`PATCH /api/admin/inquiries/:id/status`) for cross-agent administration.
+
+## S7 admin platform (approved decisions)
+- **Provisioning**: agent/admin accounts are created only via `POST /api/admin/users` (admin-only, role whitelist `agent`/`admin`). Public registration remains buyer-only (unchanged). See ADR-021.
+- **Role management**: `PATCH /api/admin/users/:id/role` (admin-only, whitelist `buyer`/`agent`/`admin`). Server-side guards: self-role-change rejected; last-admin demotion rejected. Role changes take effect in the database immediately; an already-issued access token keeps its old `role` claim for at most its 15-minute lifetime, and refresh reissues the current role (sessions are not force-revoked — ADR-021).
+- **Moderation**: admins view all listings (`GET /api/admin/properties`) and all inquiries (`GET /api/admin/inquiries`). Listing edits/deletes reuse the S6 ownership-override routes; listing `status` transitions, approve/reject, and verification remain out of scope (S13). User deactivate/delete and audit logging are out of scope.
 
 ## S4.0 approved implementation decisions
 Source: ADR-012…ADR-016 in `docs/13-decisions-log.md` (approved S4.0 architecture).
