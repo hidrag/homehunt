@@ -3,6 +3,7 @@ import * as adminController from '../controllers/admin.controller.js';
 import { requireAuth, requireRole } from '../middlewares/auth.middleware.js';
 import { requireOwnership } from '../middlewares/ownership.middleware.js';
 import Inquiry from '../models/Inquiry.js';
+import * as visitController from '../controllers/visit.controller.js';
 
 const router = express.Router();
 
@@ -11,6 +12,8 @@ const router = express.Router();
 router.use(requireAuth, requireRole('admin'));
 
 router.get('/stats', adminController.getStats);
+router.get('/visits', visitController.adminList);
+router.patch('/visits/:id/status', visitController.adminStatus);
 
 // User management (controlled provisioning + role changes per ADR-021)
 router.get('/users', adminController.listUsers);

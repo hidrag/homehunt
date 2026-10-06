@@ -22,7 +22,9 @@
   - `property.crud.mongo.test.js`: Real MongoDB tests for S6 listing management (create/mine/update/delete, role gates, ownership violations, validation, server-derived agent and status, cascade bookmark cleanup, agent compound index).
   - `inquiry.agent.mongo.test.js`: Real MongoDB tests for the S6 agent inbox (agent-scoped listing, property summary population, ordering, status transitions, ownership violations, pagination clamps).
   - `admin.mongo.test.js`: Real MongoDB tests for S7 admin authorization, stats, user management, provisioning, role protections, listing moderation, and cross-agent inquiry administration.
-- Current status: 198 tests passing across 12 test suites.
+  - `visit.mongo.test.js`: Real MongoDB tests for the S8 visit domain — creation invariants and server-derived ownership, duration/horizon edge rules, timezone normalization and UTC persistence, duplicate and overlap protection, state machine and ownership (404-not-403 enumeration guard), per-agent concurrency serialization, property-deletion historical references, listing/filter/pagination conventions, the email event matrix (recipients, XSS escaping, provider-failure isolation), and the Visit index contract.
+  - `visit.api.test.js`: HTTP-level S8 coverage — authentication matrices for every endpoint, buyer/agent/admin authorization, admin list/filter/pagination, lifecycle transitions, and deleted-property handling. Runs against its own app instance so the 100-request rate-limit budget is isolated from the service-level suite.
+- Current status: 282 tests passing across 14 test suites (S7 baseline 199 + 70 S8 service-level + 13 S8 HTTP-level).
 - Regression gate: all prior sprint test suites (34 S1–S3 tests + 19 S4 auth tests) remain unmodified and green throughout S5.
 
 ### Component & Frontend

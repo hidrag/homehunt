@@ -15,6 +15,13 @@ const STATUS_STYLES = {
   pending: 'bg-yellow-100 text-yellow-800',
   responded: 'bg-green-100 text-green-800',
   closed: 'bg-gray-100 text-gray-800',
+  // Visit statuses (S8). `requested` is only an email event name, never a
+  // Visit status — the persisted vocabulary is pending/confirmed/declined/
+  // cancelled/completed and `duration` is derived, never stored.
+  confirmed: 'bg-green-100 text-green-800',
+  declined: 'bg-red-100 text-red-800',
+  cancelled: 'bg-gray-100 text-gray-800',
+  completed: 'bg-blue-100 text-blue-800',
 };
 
 const FALLBACK_STYLE = 'bg-gray-100 text-gray-800';

@@ -7,6 +7,7 @@ import authRoutes from "./routes/auth.routes.js";
 import bookmarkRoutes from "./routes/bookmark.routes.js";
 import inquiryRoutes from "./routes/inquiry.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
+import visitRoutes from './routes/visit.routes.js';
 
 const app = express();
 
@@ -33,6 +34,7 @@ app.use('/api/properties', propertyRoutes);
 app.use("/api/bookmarks", bookmarkRoutes);
 app.use("/api/inquiries", inquiryRoutes);
 app.use("/api/admin", adminRoutes);
+app.use('/api/visits', visitRoutes);
 
 // Health Check API
 app.get('/api/health', (req, res) => {

@@ -6,6 +6,7 @@ import PropertyGallery from "../components/ui/PropertyGallery";
 import PropertyMap from "../components/ui/PropertyMap";
 import BookmarkButton from "../components/ui/BookmarkButton";
 import InquiryForm from "../components/ui/InquiryForm";
+import VisitForm from "../components/ui/VisitForm";
 
 const ListingDetail = () => {
   const { id } = useParams();
@@ -250,7 +251,8 @@ const ListingDetail = () => {
             </div>
             </div>
 
-            <InquiryForm propertyId={property._id} />
+             <InquiryForm propertyId={property._id} />
+             <VisitForm propertyId={property._id} />
           </div>
         </div>
       </div>

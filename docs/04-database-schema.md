@@ -174,3 +174,29 @@ Collection: `inquiries`
 - `{ buyer: 1, createdAt: -1 }` — buyer inquiry listing, newest first
 - `{ agent: 1, createdAt: -1 }` — agent inquiry inbox (S6), newest first
 - `{ property: 1 }` — property-scoped lookups
+
+## Visit Schema (S8)
+
+Collection: `visits`
+
+**Fields:**
+- `_id` (ObjectId)
+- `property` (ObjectId, ref `'Property'`, required) — never cascade-deleted (ADR-025); population resolves to `null` after property deletion
+- `buyer` (ObjectId, ref `'User'`, required) — always server-derived from `req.user.id`
+- `agent` (ObjectId, ref `'User'`, required) — always server-derived from `Property.agent`
+- `startAt` (Date, required) — UTC instant; must be in the future at creation
+- `endAt` (Date, required) — UTC instant; duration (`endAt - startAt`) must be 30–120 minutes inclusive and is **derived, never stored**
+- `timezone` (String, required, default `'Asia/Kolkata'`) — IANA name; legacy alias `Asia/Calcutta` normalized on write; invalid names rejected
+- `status` (String, enum `['pending', 'confirmed', 'declined', 'cancelled', 'completed']`, default `'pending'`)
+- `note` (String, optional, trimmed, max 2000)
+- `cancelledAt` (Date, nullable) — set when status becomes `cancelled`
+- `cancelledBy` (ObjectId, ref `'User'`, nullable) — actor who cancelled
+- `createdAt`, `updatedAt` (Mongoose timestamps)
+
+**Indexes:**
+- `{ buyer: 1, startAt: -1 }` — buyer visit listing, soonest first
+- `{ agent: 1, startAt: -1 }` — agent inbox, soonest first
+- `{ agent: 1, status: 1, startAt: 1 }` — agent calendar conflict checks
+- `{ buyer: 1, property: 1, startAt: 1, endAt: 1 }` (unique, partial filter `status ∈ {pending, confirmed}`) — identical active-duplicate protection (ADR-023)
+
+**State machine (ADR-022):** `pending → confirmed | declined | cancelled`; `confirmed → completed | cancelled`; `declined`/`cancelled`/`completed` terminal. Buyers may only cancel their own visits; the owning agent may confirm/decline (from `pending`) and complete/cancel (from `confirmed`); admins drive the same machine on any visit via the explicit admin route — no admin bypass.

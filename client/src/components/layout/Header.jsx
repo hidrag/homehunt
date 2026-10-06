@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { logoutUser } from "../../features/auth/authSlice";
-import { LogOut, User, Heart, MessageSquare, Menu, X } from "lucide-react";
+import { LogOut, User, Heart, MessageSquare, CalendarDays, Menu, X } from "lucide-react";
 
 const Header = () => {
   const dispatch = useDispatch();
@@ -56,6 +56,16 @@ const Header = () => {
           "flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors",
       },
     );
+    // Visits management is buyer-only; agents manage visits in the dashboard.
+    if (user.role === "buyer") {
+      primaryLinks.push({
+        to: "/visits",
+        label: "Visits",
+        icon: CalendarDays,
+        desktopClass:
+          "flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors",
+      });
+    }
     if (user.role === "agent" || user.role === "admin") {
       primaryLinks.push({
         to: "/agent",

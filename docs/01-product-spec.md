@@ -44,7 +44,7 @@ Login → Dashboard → Review Listings → Approve/Reject → Manage Users/Agen
 - Property comparison
 - Contact/inquiries
 - Chat
-- Schedule visits
+- Schedule visits (S8: buyer requests, agent confirms/declines/completes, admin moderates; email notifications via ADR-024)
 - Notifications
 
 ### Agent features

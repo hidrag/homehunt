@@ -38,6 +38,13 @@ Never commit:
 
 Use environment variables.
 
+## Email (S8)
+- `EMAIL_PROVIDER` selects the adapter: `fake` (default; in-memory log, used by development and all tests) or `resend` (Resend HTTP API via native `fetch`; no SDK dependency — ADR-024).
+- The Resend path requires `RESEND_API_KEY` and `EMAIL_FROM`; missing configuration throws at send time (never at boot), so visit CRUD stays available even with a broken provider.
+- Sending is best-effort: provider errors are logged as `[VISIT_EMAIL_ERROR] <message>` and are never mapped to HTTP responses; the committed DB mutation always stands.
+- Recipients are always derived from persisted `User` documents; request-body fields named `email`/`to` are never read for routing.
+- All user-controlled values interpolated into email HTML are escaped with the shared `escapeHtml` helper (`server/src/services/email/visit.templates.js`) — regression-tested against `<script>` and attribute-breakout payloads.
+
 ## Uploads
 Validate:
 - file type

@@ -52,6 +52,7 @@ This is intentionally a simple monorepo-style repository without a workspace/bui
 ## Email
 - Backend-controlled email service.
 - Email provider may be selected later and recorded as an architecture decision.
+- S8 (ADR-024): `EMAIL_PROVIDER` selects `fake` (default; in-memory log for development/tests) or `resend` (Resend HTTP API via native `fetch`, no SDK). `RESEND_API_KEY` and `EMAIL_FROM` are required for the Resend path. Sending is best-effort: provider errors are logged as `[VISIT_EMAIL_ERROR]`, never fail the DB mutation, and are never returned to clients. Recipients are always derived from persisted user documents; all user-controlled template values are HTML-escaped (`server/src/services/email/visit.templates.js`).
 
 ## State management
 Redux Toolkit:

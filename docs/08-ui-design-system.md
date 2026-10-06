@@ -14,7 +14,18 @@ S3 did not introduce shadcn/ui or Radix UI dependencies and continues using Tail
 
 ## Component Specifications (S3)
 
-### Property Gallery (`PropertyGallery.jsx`)
+### Visit Form (`VisitForm.jsx`, S8)
+- **Fields**: date (`type="date"`, min = today), time (`type="time"`), duration (select: 30/60/90/120 minutes), optional note (textarea, ≤1000 chars client-side; server enforces 2000). React Hook Form + Yup.
+- **Timezone**: captured from `Intl.DateTimeFormat().resolvedOptions().timeZone` (fallback `Asia/Kolkata`) and sent with the request; the server validates against IANA names.
+- **Payload**: `startAt`/`endAt` are built as local wall-clock ISO strings with explicit `±HH:MM` offsets. The end slot uses its **own** calendar date so late-night slots crossing midnight do not send `endAt` on the wrong day.
+- **States**: submitting ("Sending…"), success message, error message (server error text when available).
+
+### Visit list surfaces (S8)
+- **Buyer (`Visits.jsx`)**: URL-synced pagination (`page`), loading spinner, error + retry, empty state with "Browse listings" action, per-visit cancel with inline confirm (pending/confirmed only), deleted-property fallback ("Listing no longer available"), shared `StatusBadge`.
+- **Agent dashboard Visits tab**: URL-synced tab + `vpage` pagination, loading/error/empty/retry, buyer summary, confirm/decline (pending) and complete/cancel (confirmed) with inline confirm, deleted-property fallback.
+- **Admin Visits tab**: `GET /api/admin/visits` with status filter and pagination, safe buyer/agent summaries, deleted-property fallback, lifecycle actions limited to the server transition table with confirmation dialog.
+
+### Property Gallery (`PropertyGallery.jsx`, S3)
 - **Main Viewport**: Aspect ratio `aspect-video`, `rounded-2xl`, `overflow-hidden`, `border border-gray-200`, `bg-gray-100`, `shadow-sm`.
 - **Navigation Buttons**: Circular translucent controls (`h-11 w-11 rounded-full bg-white/90 text-gray-800 shadow-md backdrop-blur-xs hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500`), positioned vertically centered on left (`left-3`) and right (`right-3`). Disabled and styled with `opacity-40 cursor-not-allowed` at boundaries. Hidden when image count <= 1.
 - **Counter Badge**: Positioned at bottom-right (`absolute right-4 bottom-4 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold tracking-wider text-white backdrop-blur-sm`), format: `X / Y`, with `aria-live="polite"`.

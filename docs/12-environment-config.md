@@ -16,7 +16,9 @@ This document defines expected configuration names. Actual secrets must never be
 - `CLOUDINARY_API_SECRET`
 
 ## Email
-Provider-specific variables will be added after the email provider is selected and recorded in the decisions log.
+- `EMAIL_PROVIDER` — `fake` (default; in-memory log for development/tests) or `resend` (Resend HTTP API via native `fetch`, no SDK).
+- `EMAIL_FROM` — sender address required by the Resend path.
+- `RESEND_API_KEY` — required by the Resend path; the server throws at send time when it is missing (ADR-024).
 
 ## Client
 Only variables explicitly required by the frontend build should be exposed to the client, and frontend-exposed values must never contain secrets.

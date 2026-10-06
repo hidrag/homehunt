@@ -19,6 +19,7 @@ import ListingForm from "./pages/ListingForm";
 import ListingDetail from "./pages/ListingDetail";
 import Bookmarks from "./pages/Bookmarks";
 import MyInquiries from "./pages/MyInquiries";
+import Visits from "./pages/Visits";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 function AppContent() {
@@ -65,6 +66,7 @@ function AppContent() {
               </ProtectedRoute>
             }
           />
+          <Route path="visits" element={<ProtectedRoute><Visits /></ProtectedRoute>} />
           <Route
             path="admin"
             element={

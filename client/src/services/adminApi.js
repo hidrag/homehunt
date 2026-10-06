@@ -59,6 +59,22 @@ const adminApi = {
     const response = await api.patch(`/admin/inquiries/${id}/status`, { status });
     return response.data;
   },
+
+  /**
+   * Cross-agent visit administration view (explicit admin route)
+   */
+  getVisits: async (params = {}) => {
+    const response = await api.get('/admin/visits', { params });
+    return response.data;
+  },
+
+  /**
+   * Update visit status (admin-only explicit route)
+   */
+  updateVisitStatus: async (id, status) => {
+    const response = await api.patch(`/admin/visits/${id}/status`, { status });
+    return response.data;
+  },
 };
 
 export default adminApi;

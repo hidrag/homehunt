@@ -404,6 +404,50 @@ All `/api/admin/*` endpoints independently enforce `requireAuth` followed by `re
 
 Admin error vocabulary reuses existing codes only: `UNAUTHORIZED`, `FORBIDDEN`, `VALIDATION_ERROR`, `EMAIL_TAKEN`, `INVALID_ID`, `NOT_FOUND`, `INTERNAL_SERVER_ERROR`.
 
+## Visit API (S8)
+
+All visit endpoints require authentication (`requireAuth`). Role gates are enforced server-side; frontend route guards are UX only. Pagination follows the project convention (`page` default 1 min 1, `limit` default 10 min 1 max 50; ordering `startAt ASC`, then `_id ASC`; out-of-range pages return empty arrays with HTTP 200). Status filters are whitelist-only — unknown values are ignored, never interpolated into a database query.
+
+### POST /api/visits
+- Auth: `requireAuth` + `requireRole('buyer')` (agents and admins receive `403 FORBIDDEN`).
+- Body: `{ "propertyId": "<valid ObjectId>", "startAt": "<ISO 8601 with Z or ±HH:MM>", "endAt": "<ISO 8601 with Z or ±HH:MM>", "timezone": "<IANA name, optional>", "note": "<string ≤2000, optional>" }`.
+- Server invariants: `buyer` is forced to `req.user.id`; `agent` is derived server-side from `Property.agent`; `status` is forced to `pending`; `timezone` defaults to `Asia/Kolkata` and the legacy alias `Asia/Calcutta` is normalized to it; client-supplied `buyer`, `agent`, `status`, `cancelledAt`, `cancelledBy`, and unknown fields are ignored.
+- Validation: property must exist and be `available` (`404 NOT_FOUND` / `409 PROPERTY_UNAVAILABLE`); start must be in the future; duration must be 30–120 minutes inclusive; start must be within 30 days; timestamps must carry an explicit zone designator; an identical active (pending/confirmed) visit for the same buyer/property/slot is rejected `409 DUPLICATE_VISIT`.
+- Success `201`: `{ "success": true, "data": { "visit": { ...Visit object } } }`.
+- Errors: `400 INVALID_ID`, `400 VALIDATION_ERROR`, `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 NOT_FOUND`, `409 DUPLICATE_VISIT`, `409 PROPERTY_UNAVAILABLE`.
+
+### GET /api/visits
+- Auth: `requireAuth` + `requireRole('buyer')`.
+- Returns only visits where `buyer == req.user.id`, with populated `property` summary (`title`, `price`, `images`, `address.city`, `address.state`, `listingType`), `buyer` (`name`, `email`), and `agent` (`name`, `email`). Deleted properties resolve `property: null`.
+- Query: `page`, `limit`, `status` (whitelist `pending|confirmed|declined|cancelled|completed`; invalid values ignored).
+- Success `200`: `{ "visits": [...], "pagination": { "total", "page", "pages", "limit" } }`.
+
+### GET /api/visits/agent
+- Auth: `requireAuth` + `requireRole('agent')`.
+- Returns only visits where `agent == req.user.id` (the agent's inbox), same population and pagination conventions as the buyer list.
+
+### PATCH /api/visits/:id/status
+- Auth: `requireAuth` + `requireRole('buyer','agent')` (admins receive `403` — they must use the admin route).
+- Body: `{ "status": "confirmed" | "declined" | "cancelled" | "completed" }`.
+- Role ceilings: buyers may only submit `cancelled` (any other target is `409 INVALID_STATUS_TRANSITION`); agents may confirm/decline from `pending` and complete/cancel from `confirmed`. Admins obey the exact same state machine — there is deliberately no admin transition bypass.
+- Ownership: the visit's `buyer` (buyer role) or `agent` (agent role) must equal `req.id`; otherwise `404 NOT_FOUND` (never `403`, so visit existence is not enumerable).
+- Confirmation additionally requires the property to still exist and be `available` (`409 PROPERTY_UNAVAILABLE`) and checks for overlapping confirmed visits of the same agent (`409 SCHEDULE_CONFLICT`; strict inequality, so boundary-touching appointments are allowed).
+- Success `200`: `{ "success": true, "data": { "visit": { ...updated Visit } } }`.
+- Errors: `400 INVALID_ID`, `400 VALIDATION_ERROR`, `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 NOT_FOUND`, `409 INVALID_STATUS_TRANSITION`, `409 PROPERTY_UNAVAILABLE`, `409 SCHEDULE_CONFLICT`.
+
+### GET /api/admin/visits
+- Auth: `requireAuth` + `requireRole('admin')`.
+- Cross-agent administration view (all visits, any agent). Query: `page`, `limit`, `status` (whitelist as above), `agent` (valid ObjectId filter; malformed values return `400 INVALID_ID`).
+- Success `200`: paginated visits with safe `buyer`/`agent` summaries (`name`, `email` only — never `passwordHash`) and `property` summary or `null`.
+
+### PATCH /api/admin/visits/:id/status
+- Auth: `requireAuth` + `requireRole('admin')`.
+- Same transition semantics and error vocabulary as the shared route; admins drive the same state machine on any visit.
+- Success `200`: `{ "success": true, "data": { "visit": { ...updated Visit } } }`.
+
+### Visit email events (S8)
+Transactional email is best-effort (ADR-024): `requested` → buyer + agent; `confirmed` → buyer; `declined` → buyer; `buyer_cancelled` → agent; `agent_cancelled` → buyer; `completed` → none; admin cancellation → none. Recipients are always derived from persisted user documents; provider failures never fail the DB mutation and are never returned to the client.
+
 ## Authorization
 Every protected endpoint must explicitly define required authentication and role/ownership rules.
 
