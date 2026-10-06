@@ -14,11 +14,13 @@ import {
   XCircle,
   CalendarDays,
   User,
+  MessagesSquare,
 } from 'lucide-react';
 import propertyApi from '../services/propertyApi';
 import inquiryApi from '../services/inquiryApi';
 import StatusBadge from '../components/ui/StatusBadge';
 import visitApi from '../services/visitApi';
+import conversationApi from '../services/conversationApi';
 
 const PAGE_SIZE = 10;
 
@@ -40,7 +42,7 @@ const AgentDashboard = () => {
   const { user } = useSelector((state) => state.auth);
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const tab = ['inquiries', 'visits'].includes(searchParams.get('tab')) ? searchParams.get('tab') : 'listings';
+  const tab = ['inquiries', 'visits', 'conversations'].includes(searchParams.get('tab')) ? searchParams.get('tab') : 'listings';
   const page = Math.max(parseInt(searchParams.get('page') || '1', 10) || 1, 1);
   const inquiryPage = Math.max(parseInt(searchParams.get('ipage') || '1', 10) || 1, 1);
 
@@ -67,6 +69,13 @@ const AgentDashboard = () => {
   const [visitsRevision, setVisitsRevision] = useState(0);
   const [visitAction, setVisitAction] = useState(null);
   const visitPage = Math.max(parseInt(searchParams.get('vpage') || '1', 10) || 1, 1);
+
+  const [conversations, setConversations] = useState([]);
+  const [conversationsLoading, setConversationsLoading] = useState(false);
+  const [conversationsError, setConversationsError] = useState(null);
+  const [conversationsPagination, setConversationsPagination] = useState({ pages: 1, total: 0 });
+  const [conversationsRevision, setConversationsRevision] = useState(0);
+  const conversationPage = Math.max(parseInt(searchParams.get('cpage') || '1', 10) || 1, 1);
 
   useEffect(() => {
     let cancelled = false;
@@ -139,6 +148,19 @@ const AgentDashboard = () => {
     const load = async () => { setVisitsLoading(true); setVisitsError(null); try { const result = await visitApi.getAgent({ page: visitPage, limit: PAGE_SIZE }); if (!cancelled) { setVisits(result.data.visits); setVisitsPagination(result.data.pagination); } } catch { if (!cancelled) setVisitsError('Failed to load visits. Please try again.'); } finally { if (!cancelled) setVisitsLoading(false); } };
     load(); return () => { cancelled = true; };
   }, [visitPage, visitsRevision]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setConversationsLoading(true); setConversationsError(null);
+      try {
+        const result = await conversationApi.getMine({ page: conversationPage, limit: PAGE_SIZE });
+        if (!cancelled) { setConversations(result.data.conversations); setConversationsPagination(result.data.pagination); }
+      } catch { if (!cancelled) setConversationsError('Failed to load conversations. Please try again.'); }
+      finally { if (!cancelled) setConversationsLoading(false); }
+    };
+    load(); return () => { cancelled = true; };
+  }, [conversationPage, conversationsRevision]);
 
   // Removing the final item on a page leaves it empty: step back one page.
   useEffect(() => {
@@ -309,6 +331,9 @@ const AgentDashboard = () => {
         </button>
         <button type="button" role="tab" aria-selected={tab === 'visits'} onClick={() => changeTab('visits')} className={tabClass(tab === 'visits')}>
           <CalendarDays className="h-4 w-4" /><span>Visits</span>{visitsPagination.total > 0 && <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700">{visitsPagination.total}</span>}
+        </button>
+        <button type="button" role="tab" aria-selected={tab === 'conversations'} onClick={() => changeTab('conversations')} className={tabClass(tab === 'conversations')}>
+          <MessagesSquare className="h-4 w-4" /><span>Conversations</span>{conversationsPagination.total > 0 && <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700">{conversationsPagination.total}</span>}
         </button>
       </div>
 
@@ -744,6 +769,95 @@ const AgentDashboard = () => {
                 <button
                   disabled={visitPage >= visitsPagination.pages}
                   onClick={() => changePage('vpage', visitPage + 1)}
+                  className={paginationClass}
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </>
+        )
+      ) : tab === 'conversations' ? (
+        conversationsLoading ? (
+          <div className="flex h-64 items-center justify-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600"></div>
+          </div>
+        ) : conversationsError ? (
+          <div className="rounded-lg bg-red-50 p-6 text-center">
+            <h3 className="text-sm font-medium text-red-800">{conversationsError}</h3>
+            <button
+              onClick={() => setConversationsRevision((count) => count + 1)}
+              className="mt-4 rounded bg-red-100 px-4 py-2 text-sm font-medium text-red-800 hover:bg-red-200"
+            >
+              Try Again
+            </button>
+          </div>
+        ) : conversations.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 py-20 text-center">
+            <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
+              <MessagesSquare className="h-8 w-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900">No conversations yet</h3>
+            <p className="mt-2 max-w-md text-sm text-gray-500">
+              When buyers message you about your listings, the conversations will appear here.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-4">
+              {conversations.map((conversation) => (
+                <div key={conversation._id} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                  <div className="p-4 sm:p-5">
+                    <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        {conversation.property ? (
+                          <Link to={`/listings/${conversation.property._id}`} className="text-base font-semibold text-gray-900 hover:text-indigo-600 transition-colors">
+                            {conversation.property.title}
+                          </Link>
+                        ) : (
+                          <p className="text-base font-semibold text-gray-500">Listing no longer available</p>
+                        )}
+                        <p className="text-sm text-gray-500">
+                          From <span className="font-medium text-gray-700">{conversation.buyer?.name || 'Account unavailable'}</span>
+                          {conversation.buyer?.email ? ` · ${conversation.buyer.email}` : ''}
+                        </p>
+                      </div>
+                      {conversation.agentUnread > 0 && (
+                        <span className="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-indigo-600 px-2 text-xs font-semibold text-white">
+                          {conversation.agentUnread}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mb-3 line-clamp-2 break-words text-sm text-gray-600">
+                      {conversation.lastMessage?.body}
+                    </p>
+                    <Link
+                      to={`/messages/${conversation._id}`}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <MessagesSquare className="h-3.5 w-3.5" />
+                      <span>Open conversation</span>
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {conversationsPagination.pages > 1 && (
+              <div className="mt-12 flex items-center justify-center gap-2">
+                <button
+                  disabled={conversationPage <= 1}
+                  onClick={() => changePage('cpage', conversationPage - 1)}
+                  className={paginationClass}
+                >
+                  Previous
+                </button>
+                <span className="text-sm text-gray-600">
+                  Page {conversationPage} of {conversationsPagination.pages}
+                </span>
+                <button
+                  disabled={conversationPage >= conversationsPagination.pages}
+                  onClick={() => changePage('cpage', conversationPage + 1)}
                   className={paginationClass}
                 >
                   Next

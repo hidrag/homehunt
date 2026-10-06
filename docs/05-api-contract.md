@@ -452,3 +452,62 @@ Transactional email is best-effort (ADR-024): `requested` → buyer + agent; `co
 Every protected endpoint must explicitly define required authentication and role/ownership rules.
 
 Frontend route protection is not a security boundary.
+
+## Conversation API (S9)
+
+All conversation endpoints require authentication (`requireAuth`). Pagination follows the project convention (`page` default 1 min 1, `limit` default 10 min 1 max 50 — messages default 20; out-of-range pages return empty arrays with HTTP 200). A conversation is identified by `(property, buyer)`; the `agent` is always derived from `Property.agent` and the `buyer`/`sender` from `req.user.id` (ADR-018 pattern). Message history is returned newest-first (`createdAt DESC, _id DESC`). Message lifecycle is append-only — there is no edit or delete endpoint.
+
+### POST /api/conversations
+- Auth: `requireAuth` + `requireRole('buyer')` (agents and admins receive `403 FORBIDDEN`).
+- Body: `{ "propertyId": "<valid ObjectId>", "body": "<1–2000 chars>" }`.
+- Behaviour: **idempotent on `(property, buyer)`** — reuses the existing thread when one exists, otherwise creates it; persists the opening message, sets `lastMessage`, and increments `agentUnread`. Emits `message:new` to the conversation room (no-op without a socket server).
+- Server invariants: `buyer` forced to `req.user.id`; `agent` derived from `Property.agent`; client-supplied `buyer`, `agent`, `sender`, `readAt`, unread counters and unknown fields are ignored.
+- Validation: property must exist (`404 NOT_FOUND`); `body` required, trimmed, 1–2000 characters (`400 VALIDATION_ERROR`); malformed `propertyId` → `400 INVALID_ID`.
+- Success `201` (new thread) / `200` (existing thread): `{ "success": true, "data": { "conversation": { ...Conversation }, "message": { ...Message } } }`.
+- Errors: `400 INVALID_ID`, `400 VALIDATION_ERROR`, `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 NOT_FOUND`.
+
+### GET /api/conversations
+- Auth: `requireAuth` + `requireRole('buyer','agent')`.
+- Role-scoped inbox: buyers see threads where `buyer == req.user.id`, agents see threads where `agent == req.user.id`.
+- Populates `property` summary (`title`, `price`, `images`, `address.city`, `address.state`, `listingType` — `null` when deleted) and safe `buyer`/`agent` summaries (`name`, `email`; never `passwordHash`). Ordered by newest activity (`updatedAt DESC`, `_id DESC`).
+- Success `200`: `{ "conversations": [...], "pagination": { "total", "page", "pages", "limit" } }`.
+
+### GET /api/conversations/unread-count
+- Auth: `requireAuth` + `requireRole('buyer','agent')`.
+- Sums the caller's unread counter across all their conversations (the buyer's `buyerUnread` plus the agent's `agentUnread` where the caller is the respective participant).
+- Success `200`: `{ "success": true, "data": { "unread": 3 } }`.
+
+### GET /api/conversations/:id/messages
+- Auth: `requireAuth` + `requireRole('buyer','agent')`; **participants only** — a non-participant receives `404 NOT_FOUND` (enumeration guard, never `403`).
+- Query: `page`, `limit` (default 20, max 50). Ordering: `createdAt DESC`, `_id DESC`.
+- Success `200`: `{ "messages": [ { ...Message, "sender": { "name", "email" } } ], "pagination": { ... } }`.
+- Errors: `400 INVALID_ID`, `401 UNAUTHORIZED`, `403 FORBIDDEN` (admin at the role gate), `404 NOT_FOUND`.
+
+### POST /api/conversations/:id/messages
+- Auth: `requireAuth` + `requireRole('buyer','agent')`; **participants only** (`404` otherwise).
+- Body: `{ "body": "<1–2000 chars>" }`. `sender` is always `req.user.id`.
+- Behaviour: validates → persists the message → updates `lastMessage` → atomically `$inc`s the **other** participant's unread counter → emits `message:new` to the room. **REST is the only send path** (ADR-026); no client-to-server socket message event exists.
+- Success `201`: `{ "success": true, "data": { "conversation": { ...updated }, "message": { ...Message } } }`.
+- Errors: `400 INVALID_ID`, `400 VALIDATION_ERROR`, `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 NOT_FOUND`.
+
+### POST /api/conversations/:id/read
+- Auth: `requireAuth` + `requireRole('buyer','agent')`; **participants only** (`404` otherwise).
+- Behaviour: zeroes the caller's unread counter and stamps `readAt` on the other participant's previously-unread messages; emits `conversation:updated` to the room.
+- Success `200`: `{ "success": true, "data": { "conversation": { ...updated } } }`.
+- Errors: `400 INVALID_ID`, `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 NOT_FOUND`.
+
+### GET /api/admin/conversations
+- Auth: `requireAuth` + `requireRole('admin')`.
+- Cross-marketplace audit view (read-only). Query: `page`, `limit`. Newest activity first.
+- Success `200`: paginated conversations with safe `buyer`/`agent` summaries and `property` summary or `null`.
+
+### GET /api/admin/conversations/:id/messages
+- Auth: `requireAuth` + `requireRole('admin')`.
+- Read-only message history for **any** conversation (admins are not participants but may audit). Query: `page`, `limit`.
+- Success `200`: `{ "messages": [...], "pagination": { ... } }`. Errors: `400 INVALID_ID`, `404 NOT_FOUND`.
+
+### Socket.io events (S9)
+- Handshake: authenticated by the `hh_access` cookie via `verifyAccessToken`; failures reject the connection with `AUTH_UNAUTHORIZED` (no unauthenticated socket ever attaches).
+- Client → server: `conversation:join` (participants only; non-participants receive `{ error: 'NOT_FOUND' }` and are disconnected), `conversation:leave`.
+- Server → client: `message:new` (sanitized message document, emitted after the DB write), `conversation:updated` (unread/lastMessage refresh after a read).
+- Admins never join rooms and cannot post (S9 locked decision).

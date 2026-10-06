@@ -1,12 +1,52 @@
 # HomeHunt — Current Sprint
 
 ## Sprint
-S8 — Visit Scheduling & Email Infrastructure
+S9 — Real-time Chat
 
 ## Status
-[~] In progress — implementation complete; automated verification green (282 tests, 14 suites); not declared complete pending human QA.
+[~] In progress — implementation complete; automated verification green (341 tests, 17 suites); not declared complete pending human QA.
 
-## S8 Scope & Deliverables (implemented)
+## S9 Scope & Deliverables (implemented)
+- [x] Transport (ADR-026): `server/src/server.js` refactored from `app.listen()` to `http.createServer(app)` with a Socket.io server attached (CORS matching `CLIENT_URL`, `credentials: true`); `server/src/sockets/auth.middleware.js` authenticates the handshake from the `hh_access` cookie via `verifyAccessToken` and rejects unauthenticated/invalid sockets with `AUTH_UNAUTHORIZED`; `server/src/sockets/registry.js` holds the live `io` instance with no-op emit helpers for `app`-only contexts.
+- [x] Data model (ADR-027): `server/src/models/Conversation.js` (`property`/`buyer`/`agent`, denormalized `lastMessage`, `buyerUnread`/`agentUnread`; indexes `{buyer,updatedAt:-1}`, `{agent,updatedAt:-1}`, unique `{property,buyer}`) and `server/src/models/Message.js` (`conversation`, server-derived `sender`, `body` 1–2000 trimmed, `readAt`; index `{conversation,createdAt:1,_id:1}`). Strictly append-only.
+- [x] Service/controller/routes (`conversation.service.js`, `conversation.controller.js`, `conversation.routes.js`): idempotent `POST /api/conversations` (reuse-or-create on `(property, buyer)`, persists the opening message, increments `agentUnread`), role-scoped `GET /api/conversations`, `GET /api/conversations/unread-count`, participant-only `GET /api/conversations/:id/messages` (404 for non-participants), `POST /api/conversations/:id/messages` (persist → `$inc` other side → emit `message:new`), `POST /api/conversations/:id/read` (zero caller counter, stamp `readAt`, emit `conversation:updated`).
+- [x] Admin audit (read-only): `GET /api/admin/conversations` and `GET /api/admin/conversations/:id/messages` — admins are not participants, never join rooms, and cannot post.
+- [x] Socket room dispatch (ADR-028, `chat.handler.js`): `conversation:join` re-verifies participation against MongoDB, joins `conversation:${id}`, and rejects non-participants with `NOT_FOUND` + disconnect; `conversation:leave` supported. No client-to-server message event exists (REST-only send).
+- [x] Frontend: `conversationApi.js`, `lib/socket.js` (singleton client, connect on auth / teardown on logout), `chatSlice.js` (unread badge with the ADR-017 revision guard), `Messages.jsx` (responsive two-pane inbox + transcript, live appends, read-on-open), `MessageAgentButton.jsx` on `ListingDetail`, Header Messages link + unread badge, Agent dashboard Conversations tab, Admin Conversations audit tab.
+- [x] Tests: `conversation.mongo.test.js` (33), `conversation.api.test.js` (15), `conversation.socket.test.js` (11) — 341 total across 17 suites, S8 baseline (282) fully preserved.
+- [x] Documentation: ADR-026…ADR-028, API contract, database schema, auth/RBAC (permission row), architecture, security (WebSocket section), testing strategy, UI design system, product spec, roadmap.
+
+## S9 Explicitly out of scope
+- Email/push notifications on messages (S10 notification engine).
+- Attachments, image/document uploads (S13).
+- Message analytics / AI auto-replies (S14+).
+- Message edit/delete — strictly append-only (locked decision).
+- Redis/multi-instance Socket.io adapter (recorded for S16).
+
+## Acceptance criteria (met)
+- [x] Property-bound threads with unique `(property, buyer)`; `POST /api/conversations` idempotent and persists the opening message.
+- [x] Server-derived participants: `buyer` from `req.user.id`, `agent` from `Property.agent`, `sender` from the caller; client-supplied values ignored.
+- [x] Participants only: non-participants receive `404` on REST and `NOT_FOUND` + disconnect on socket join (no enumeration).
+- [x] Admins are read-only: audit REST endpoints only; rejected from rooms and from posting.
+- [x] Unauthenticated sockets rejected at handshake (`AUTH_UNAUTHORIZED`).
+- [x] REST is the only send path; `message:new` emitted after the DB write; no client-to-server message emit.
+- [x] Unread counters via atomic `$inc`; read receipts zero the caller's counter and stamp `readAt` on the other side.
+- [x] Append-only lifecycle; no edit/delete surface.
+- [x] Deleted property: thread survives, `property: null`, messaging still works.
+- [x] All 341 tests pass; server lint clean; client lint clean; client build succeeds.
+
+## S9 Known limitations
+- Socket.io default in-memory adapter is single-process; multi-instance deployment needs the Redis adapter (S16).
+- Socket tests boot a real ephemeral-port server; they run sequentially (`--runInBand`) with the rest of the suite.
+- No notification on new messages until S10 (deliberate).
+
+## Remaining manual QA
+- Browser verification of the buyer "Message the agent" flow, live delivery between two signed-in sessions (buyer ↔ agent), unread badge behaviour, and the admin read-only transcript view.
+- Responsive checks on the Messages page (two-pane → single column) and the new dashboard/admin tabs.
+- Confirm the socket reconnects cleanly after a logout/login cycle (client tears the socket down on logout).
+
+## S8 delivery record (complete)
+S8 — Visit Scheduling & Email Infrastructure is complete and committed: visit domain, agent/admin management, and transactional email.
 - [x] Visit domain model (`server/src/models/Visit.js`): `property`/`buyer`/`agent` references, UTC `startAt`/`endAt`, IANA `timezone` (default `Asia/Kolkata`, alias `Asia/Calcutta` normalized), `status` (`pending|confirmed|declined|cancelled|completed`), `note` (≤2000), `cancelledAt`/`cancelledBy` audit fields. Duration derived, never stored.
 - [x] Service layer (`server/src/services/visit.service.js`): server-derived `buyer`/`agent`, forced `pending` status, mass-assignment rejection, 30–120 minute duration window, 30-day horizon, explicit zone designator required, timezone validation, duplicate protection (`409 DUPLICATE_VISIT`), per-agent confirmation serialization with TOCTOU re-check, overlap conflict (`409 SCHEDULE_CONFLICT`, strict inequality), property-availability re-check at confirm, 404-not-403 ownership guard.
 - [x] Routes: `POST /api/visits` (buyer), `GET /api/visits` (buyer), `GET /api/visits/agent` (agent), `PATCH /api/visits/:id/status` (buyer|agent), `GET /api/admin/visits` + `PATCH /api/admin/visits/:id/status` (admin). Admins obey the same state machine — no bypass.

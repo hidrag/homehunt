@@ -75,6 +75,23 @@ const adminApi = {
     const response = await api.patch(`/admin/visits/${id}/status`, { status });
     return response.data;
   },
+
+  /**
+   * Cross-marketplace conversation audit view (read-only; S9 locked decision —
+   * admins never join Socket.io rooms and cannot post messages)
+   */
+  getConversations: async (params = {}) => {
+    const response = await api.get('/admin/conversations', { params });
+    return response.data;
+  },
+
+  /**
+   * Read any conversation's message history (read-only audit)
+   */
+  getConversationMessages: async (id, params = {}) => {
+    const response = await api.get(`/admin/conversations/${id}/messages`, { params });
+    return response.data;
+  },
 };
 
 export default adminApi;

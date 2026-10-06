@@ -45,6 +45,14 @@ Use environment variables.
 - Recipients are always derived from persisted `User` documents; request-body fields named `email`/`to` are never read for routing.
 - All user-controlled values interpolated into email HTML are escaped with the shared `escapeHtml` helper (`server/src/services/email/visit.templates.js`) — regression-tested against `<script>` and attribute-breakout payloads.
 
+## Realtime / WebSocket (S9)
+- Socket.io handshakes authenticate with the same `hh_access` cookie as REST (`verifyAccessToken`, HS256 + issuer whitelist). Missing/invalid tokens are rejected with an `AUTH_UNAUTHORIZED` connect error — **no unauthenticated socket ever attaches**.
+- Room membership is never trusted from client input: `conversation:join` re-reads the conversation from MongoDB and admits only `buyer`/`agent` participants. Non-participants receive `NOT_FOUND` and are disconnected, so room existence is not enumerable (mirrors the REST 404-not-403 guard). Admins are participants of no conversation and are rejected identically — they audit over REST only.
+- Message sending is **REST-only** (ADR-026). There is no client-to-server message event, so message validation, authorization and rate limiting live on exactly one path and cannot be bypassed over the socket. `message:new` is emitted only after the DB write resolves (persistence-first).
+- Sockets do not bypass the global HTTP rate limiter because they never carry message mutations; connect/join churn is bounded by handshake authentication and the per-socket join handler.
+- Message bodies are never logged. No secrets, tokens or cookies are logged on the socket path.
+- Single-process boundary: the default in-memory Socket.io adapter (ADR-028). Multi-instance deployment requires the Redis adapter before horizontal scaling — recorded for S16.
+
 ## Uploads
 Validate:
 - file type

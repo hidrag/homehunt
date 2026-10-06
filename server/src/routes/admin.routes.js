@@ -4,6 +4,7 @@ import { requireAuth, requireRole } from '../middlewares/auth.middleware.js';
 import { requireOwnership } from '../middlewares/ownership.middleware.js';
 import Inquiry from '../models/Inquiry.js';
 import * as visitController from '../controllers/visit.controller.js';
+import * as conversationController from '../controllers/conversation.controller.js';
 
 const router = express.Router();
 
@@ -14,6 +15,11 @@ router.use(requireAuth, requireRole('admin'));
 router.get('/stats', adminController.getStats);
 router.get('/visits', visitController.adminList);
 router.patch('/visits/:id/status', visitController.adminStatus);
+
+// Cross-marketplace conversation audit (read-only; admins are not
+// participants and never join Socket.io rooms — S9 locked decision)
+router.get('/conversations', conversationController.adminList);
+router.get('/conversations/:id/messages', conversationController.adminMessages);
 
 // User management (controlled provisioning + role changes per ADR-021)
 router.get('/users', adminController.listUsers);

@@ -32,6 +32,7 @@ Both must be enforced server-side.
 | Edit own property | No | Yes | Yes |
 | Edit any property | No | No | Yes |
 | Manage own inquiries | No | Yes | Yes |
+| Chat with counterpart (S9) | Yes (own threads) | Yes (own threads) | No — read-only audit |
 | Manage users | No | No | Yes |
 | Moderate listings | No | No | Yes |
 | Verify properties | No | No | Yes |
@@ -62,3 +63,12 @@ Source: ADR-022…ADR-025 in `docs/13-decisions-log.md`.
 - **Conflict protection (ADR-023)**: unique partial index on `{buyer, property, startAt, endAt}` filtered to active statuses blocks identical duplicates (`409 DUPLICATE_VISIT`); confirmation checks overlapping confirmed visits per agent under an in-process per-agent mutex (`409 SCHEDULE_CONFLICT`, strict inequality — boundary-touching allowed). Pending overlaps may queue.
 - **Email (ADR-024)**: `EMAIL_PROVIDER` selects `fake` (default, in-memory log) or `resend` (native fetch, no SDK). Sending is best-effort: provider errors are logged (`[VISIT_EMAIL_ERROR]`), never fail the DB mutation, and are never returned to clients. Recipients are always derived from persisted user documents; all user-controlled template values are HTML-escaped.
 - **Deletion (ADR-025)**: property deletion never cascade-deletes visits; `property` populates to `null`, pending visits against deleted properties cannot be confirmed (`409 PROPERTY_UNAVAILABLE`), historical confirmed visits stay manageable.
+
+## S9 real-time chat (approved decisions)
+Source: ADR-026…ADR-028 in `docs/13-decisions-log.md`.
+
+- **Threads (ADR-027)**: property-bound, identified by `(property, buyer)` with a unique index; `POST /api/conversations` is idempotent and persists the opening message. `buyer` is forced to `req.user.id` and `agent` is derived from `Property.agent`. Messages are **append-only** (no edit/delete).
+- **Transport (ADR-026)**: Socket.io attached to an `http.createServer(app)` with CORS matching `CLIENT_URL`; handshake auth reuses the `hh_access` cookie and `verifyAccessToken` (unauthenticated sockets are rejected). **Sending is REST-only** — `POST /api/conversations/:id/messages` persists then emits `message:new`; clients emit only `conversation:join`/`conversation:leave`.
+- **Rooms & receipts (ADR-028)**: rooms are `conversation:${id}`; `conversation:join` re-checks participation against the database and disconnects non-participants (`NOT_FOUND`, never enumerable). `POST /api/conversations/:id/read` zeroes the caller's unread counter and stamps `readAt` on the other side, then emits `conversation:updated`.
+- **Admins**: read-only REST audit (`GET /api/admin/conversations`, `GET /api/admin/conversations/:id/messages`). Admins are not participants, never join rooms, and cannot post.
+- **Notifications**: none on chat messages — email/push is strictly deferred to S10 (ADR-024 scope note).

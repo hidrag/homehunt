@@ -43,7 +43,7 @@ Login → Dashboard → Review Listings → Approve/Reject → Manage Users/Agen
 - Alerts
 - Property comparison
 - Contact/inquiries
-- Chat
+- Chat (S9: property-bound buyer↔agent threads, real-time delivery via Socket.io, unread counts, REST history; admins audit read-only)
 - Schedule visits (S8: buyer requests, agent confirms/declines/completes, admin moderates; email notifications via ADR-024)
 - Notifications
 

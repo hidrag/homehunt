@@ -48,6 +48,7 @@ This is intentionally a simple monorepo-style repository without a workspace/bui
 ## Realtime
 - Socket.io
 - Conversation-based rooms, keyed by conversation ID
+- S9 (ADR-026…ADR-028): the Socket.io server is attached to an `http.createServer(app)` in `server.js` (CORS matching `CLIENT_URL`, `credentials: true`). Handshake authentication reuses the `hh_access` cookie and `verifyAccessToken`; unauthenticated sockets are rejected. **Sending is REST-only** — the message is persisted by the REST handler and then emitted as `message:new` through `server/src/sockets/registry.js`; clients emit only `conversation:join` / `conversation:leave`. Room membership is re-verified against MongoDB on every join (non-participants are rejected and disconnected). The default in-memory adapter is a deliberate single-process boundary (Redis adapter deferred to S16).
 
 ## Email
 - Backend-controlled email service.

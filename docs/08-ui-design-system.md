@@ -25,6 +25,13 @@ S3 did not introduce shadcn/ui or Radix UI dependencies and continues using Tail
 - **Agent dashboard Visits tab**: URL-synced tab + `vpage` pagination, loading/error/empty/retry, buyer summary, confirm/decline (pending) and complete/cancel (confirmed) with inline confirm, deleted-property fallback.
 - **Admin Visits tab**: `GET /api/admin/visits` with status filter and pagination, safe buyer/agent summaries, deleted-property fallback, lifecycle actions limited to the server transition table with confirmation dialog.
 
+### Chat surfaces (S9)
+- **Buyer & agent (`Messages.jsx`)**: responsive two-pane layout (inbox list + transcript) that collapses to a single column below `lg` with a "back to conversations" affordance. Inbox shows property title, counterpart, last-message preview and an unread badge; URL-synced pagination (`page`). Transcript renders newest-last bubbles (`whitespace-pre-wrap break-words`, React text nodes only — never `dangerouslySetInnerHTML`), marks the thread read on open, and joins the Socket.io room for live `message:new` appends (deduplicated by `_id`). Send is a REST `POST` with a submitting state and inline error.
+- **Listing detail (`MessageAgentButton.jsx`)**: "Message the agent" affordance beside the inquiry and visit forms. Signed-out visitors are routed to login; buyers open (or reuse) the property-bound thread and are navigated into it. Hidden for agent/admin viewers.
+- **Header**: Messages link with an unread-count badge for buyers and agents (Redux `chat.unread`, hydrated on auth and refreshed on read). Admins see no Messages link.
+- **Agent dashboard Conversations tab**: `cpage` pagination, buyer summary, last-message preview, per-thread unread badge, "Open conversation" link into `Messages`.
+- **Admin Conversations tab**: read-only audit list with safe buyer/agent summaries and a "View transcript" panel that loads any thread's history (`GET /api/admin/conversations/:id/messages`). No compose affordance and no room participation (S9 locked decision).
+
 ### Property Gallery (`PropertyGallery.jsx`, S3)
 - **Main Viewport**: Aspect ratio `aspect-video`, `rounded-2xl`, `overflow-hidden`, `border border-gray-200`, `bg-gray-100`, `shadow-sm`.
 - **Navigation Buttons**: Circular translucent controls (`h-11 w-11 rounded-full bg-white/90 text-gray-800 shadow-md backdrop-blur-xs hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500`), positioned vertically centered on left (`left-3`) and right (`right-3`). Disabled and styled with `opacity-40 cursor-not-allowed` at boundaries. Hidden when image count <= 1.

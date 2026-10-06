@@ -200,3 +200,41 @@ Collection: `visits`
 - `{ buyer: 1, property: 1, startAt: 1, endAt: 1 }` (unique, partial filter `status ∈ {pending, confirmed}`) — identical active-duplicate protection (ADR-023)
 
 **State machine (ADR-022):** `pending → confirmed | declined | cancelled`; `confirmed → completed | cancelled`; `declined`/`cancelled`/`completed` terminal. Buyers may only cancel their own visits; the owning agent may confirm/decline (from `pending`) and complete/cancel (from `confirmed`); admins drive the same machine on any visit via the explicit admin route — no admin bypass.
+
+## Conversation Schema (S9)
+
+Collection: `conversations`
+
+**Fields:**
+- `_id` (ObjectId)
+- `property` (ObjectId, ref `'Property'`, required) — thread context anchor (ADR-006); never cascade-deleted, populates to `null` after property deletion
+- `buyer` (ObjectId, ref `'User'`, required) — always server-derived from `req.user.id`
+- `agent` (ObjectId, ref `'User'`, required) — always server-derived from `Property.agent`
+- `lastMessage` (Object) — denormalized inbox preview: `{ body: String, sender: ObjectId ref 'User', sentAt: Date }`
+- `buyerUnread` (Number, default 0) — atomic `$inc` on agent sends; zeroed when the buyer reads
+- `agentUnread` (Number, default 0) — atomic `$inc` on buyer sends; zeroed when the agent reads
+- `createdAt`, `updatedAt` (Mongoose timestamps)
+
+**Indexes:**
+- `{ buyer: 1, updatedAt: -1 }` — buyer inbox, newest activity first
+- `{ agent: 1, updatedAt: -1 }` — agent inbox, newest activity first
+- `{ property: 1, buyer: 1 }` (unique) — one thread per (property, buyer); the only thread-identity guarantee, and what makes `POST /api/conversations` idempotent (ADR-027)
+
+**Identity rule:** a conversation is identified by `(property, buyer)`. Opening it twice returns the same thread and appends the message.
+
+## Message Schema (S9)
+
+Collection: `messages`
+
+**Fields:**
+- `_id` (ObjectId)
+- `conversation` (ObjectId, ref `'Conversation'`, required)
+- `sender` (ObjectId, ref `'User'`, required) — always server-derived from the caller; never client-supplied
+- `body` (String, required, trimmed, min 1, max 2000) — plain text; never rendered as HTML
+- `readAt` (Date, nullable) — stamped when the *other* participant marks the thread read
+- `createdAt` (Mongoose timestamp)
+
+**Index:**
+- `{ conversation: 1, createdAt: 1, _id: 1 }` — paginated history (history is returned newest-first via `createdAt DESC, _id DESC`)
+
+**Lifecycle (ADR-027):** strictly append-only — no message edit or delete surface exists in S9. Property deletion does not cascade; threads and their messages survive.

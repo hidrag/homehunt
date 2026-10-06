@@ -2,13 +2,14 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { logoutUser } from "../../features/auth/authSlice";
-import { LogOut, User, Heart, MessageSquare, CalendarDays, Menu, X } from "lucide-react";
+import { LogOut, User, Heart, MessageSquare, CalendarDays, Menu, X, MessagesSquare } from "lucide-react";
 
 const Header = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useSelector((state) => state.auth);
   const bookmarkCount = useSelector((state) => state.bookmarks.ids.length);
+  const chatUnread = useSelector((state) => state.chat.unread);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -62,6 +63,17 @@ const Header = () => {
         to: "/visits",
         label: "Visits",
         icon: CalendarDays,
+        desktopClass:
+          "flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors",
+      });
+    }
+    // Messaging is available to both participants; admins audit over REST only.
+    if (user.role === "buyer" || user.role === "agent") {
+      primaryLinks.push({
+        to: "/messages",
+        label: "Messages",
+        icon: MessagesSquare,
+        badge: chatUnread,
         desktopClass:
           "flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors",
       });

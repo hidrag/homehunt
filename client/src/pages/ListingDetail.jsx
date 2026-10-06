@@ -7,6 +7,7 @@ import PropertyMap from "../components/ui/PropertyMap";
 import BookmarkButton from "../components/ui/BookmarkButton";
 import InquiryForm from "../components/ui/InquiryForm";
 import VisitForm from "../components/ui/VisitForm";
+import MessageAgentButton from "../components/ui/MessageAgentButton";
 
 const ListingDetail = () => {
   const { id } = useParams();
@@ -252,6 +253,7 @@ const ListingDetail = () => {
             </div>
 
              <InquiryForm propertyId={property._id} />
+             <MessageAgentButton propertyId={property._id} />
              <VisitForm propertyId={property._id} />
           </div>
         </div>
