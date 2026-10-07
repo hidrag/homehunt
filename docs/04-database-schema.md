@@ -27,7 +27,7 @@ location: {
 }
 ```
 
-A `2dsphere` index is required for geospatial queries.
+A `2dsphere` index is required for geospatial queries. **(S11 reality: `propertySchema.index({ location: '2dsphere' })` has shipped since S1 and is consumed since S11 by `$geoWithin $centerSphere` / `$geometry` Polygon — no `$nearSphere`, no legacy `$box`, no new index; see ADR-031.)**
 
 *Important Coordinate Ordering Note (S3)*:
 - MongoDB and GeoJSON specification strictly enforce `[longitude, latitude]`.
@@ -247,7 +247,7 @@ Collection: `savedSearches`
 - `_id` (ObjectId)
 - `user` (ObjectId, ref `'User'`, required) — always server-derived from `req.user.id`; buyer-only authority (ADR-029)
 - `name` (String, required, trimmed, max 80)
-- `criteria` (Object) — **typed sub-fields only, never Mongo query fragments** (ADR-029): `search` (String ≤100), `city` (String ≤100), `propertyType` (enum: apartment|house|villa|condo|land), `listingType` (enum: sale|rent), `minPrice` (Number ≥0), `maxPrice` (Number ≥0, ≥ minPrice), `bedrooms` (integer ≥0), `sort` (enum: newest|price_asc|price_desc) — all individually optional; the Mongo filter is rebuilt from these fields at every execution via the shared `lib/propertyFilters.js` builder
+- `criteria` (Object) — **typed sub-fields only, never Mongo query fragments** (ADR-029): `search` (String ≤100), `city` (String ≤100), `propertyType` (enum: apartment|house|villa|condo|land), `listingType` (enum: sale|rent), `minPrice` (Number ≥0), `maxPrice` (Number ≥0, ≥ minPrice), `bedrooms` (integer ≥0), `sort` (enum: newest|price_asc|price_desc), **S11 (ADR-031):** `lat` (Number, −90…90), `lng` (Number, −180…180), `radiusKm` (Number, (0,100]) — the geo trio is **all-or-none** — all individually optional; the Mongo filter is rebuilt from these fields at every execution EITHER directly or via `buildGeoFilter` in the shared `lib/propertyFilters.js` builder. `bounds` is deliberately NOT a criteria field (transient viewport state only).
 - `frequency` (String, enum `['instant']`, default `'instant'`) — `daily` is **rejected** with `400 VALIDATION_ERROR` in this version (locked decision 2)
 - `active` (Boolean, default true) — pausing alerts is `active: false` (locked decision 4: no other preference surface in S10)
 - `lastNotifiedAt` (Date, nullable)

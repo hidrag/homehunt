@@ -99,6 +99,35 @@ const validateCriteria = (raw) => {
     criteria.sort = raw.sort.trim();
   }
 
+  // S11 geo criteria (ADR-031): all-or-none group, strict ranges.
+  const geoLat = raw.lat;
+  const geoLng = raw.lng;
+  const geoRadius = raw.radiusKm;
+  const geoPresent = [geoLat, geoLng, geoRadius].some(
+    (v) => v !== undefined && v !== null && v !== '',
+  );
+  if (geoPresent) {
+    const num = (value, label) => {
+      if (value === undefined || value === null || value === '') {
+        fail(400, 'VALIDATION_ERROR', 'lat, lng and radiusKm must be saved together');
+      }
+      const n = typeof value === 'string' ? Number(value) : value;
+      if (typeof n !== 'number' || !Number.isFinite(n)) {
+        fail(400, 'VALIDATION_ERROR', `${label} must be a finite number`);
+      }
+      return n;
+    };
+    const lat = num(geoLat, 'lat');
+    const lng = num(geoLng, 'lng');
+    const radiusKm = num(geoRadius, 'radiusKm');
+    if (lat < -90 || lat > 90) fail(400, 'VALIDATION_ERROR', 'lat must be between -90 and 90');
+    if (lng < -180 || lng > 180) fail(400, 'VALIDATION_ERROR', 'lng must be between -180 and 180');
+    if (radiusKm <= 0 || radiusKm > 100) fail(400, 'VALIDATION_ERROR', 'radiusKm must be greater than 0 and at most 100');
+    criteria.lat = lat;
+    criteria.lng = lng;
+    criteria.radiusKm = radiusKm;
+  }
+
   if (Object.keys(criteria).length === 0) {
     fail(400, 'VALIDATION_ERROR', 'At least one search criterion is required');
   }

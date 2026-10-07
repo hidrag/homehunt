@@ -1,7 +1,46 @@
 # HomeHunt — Current Sprint
 
 ## Sprint
-S10 — Saved Searches & Notification Engine
+S11 — Advanced Geo Search
+
+## Status
+[x] Complete (Ready for human QA) — automated verification green (435 tests, 24 suites, incl. $geometry bounds IXSCAN amendment); awaiting human QA sign-off before commit.
+
+## S11 Locked Decisions (user-approved 2026-10-07)
+1. Spatial querying: `$geoWithin` `$centerSphere` (radius) and `$geoWithin` `$geometry` closed Polygon (bounds — amended from `$box` for 2dsphere index acceleration). No `$nearSphere` (sort/pagination contracts preserved).
+2. Radius + bounding box only; free-hand polygon drawing DEFERRED.
+3. SavedSearch criteria gains optional `lat`/`lng`/`radiusKm` (all-or-none); shared builder handles criteria + sweep unchanged.
+4. Validation: lat [-90,90], lng [-180,180] finite; radiusKm (0,100] required with coordinates; bounds = exactly 4 numbers, minLat ≤ maxLat, minLng ≤ maxLng; antimeridian crossing / out-of-range → `400 GEO_INVALID`.
+5. In-house grid clustering (~60px cells, zero new deps); direct Leaflet (ADR-007); debounced viewport→URL bounds sync with programmatic-move suppression; mobile List/Map segmented toggle.
+6. Public property status behavior unchanged (no silent status filtering).
+
+## Planned deliverables
+- Shared-builder geo keys (lat/lng/radiusKm/bounds) + 400 GEO_INVALID envelope
+- SavedSearch geo criteria + validation
+- geoFilter unit + geo.mongo (accuracy, 2dsphere explain, conjunctions) + geo.api suites
+- MapResults component (markers, price badges, clustering, card↔marker sync, viewport sync)
+- Listings page integration + mobile view toggle; SaveSearchModal geo capture
+- 395-test baseline preserved
+
+## S11 Explicitly out of scope
+- Polygon/free-hand drawing (deferred), geocoding (paid-API policy), POI/neighborhood data (S12), markercluster/react-leaflet packages, `$nearSphere`/distance sorting, antimeridian wrap support, saved `bounds` (transient viewport only).
+
+## S11 status
+Verification green: 435 tests / 24 suites, server lint clean, client lint clean, client build clean. Not declared complete pending human QA.
+
+## S11 manual QA checklist (human)
+- Radius: on /listings, drag/zoom the map → after ~0.35s the URL gains `bounds=...` and results reload to the visible area; a shared/reloaded URL reproduces the same viewport (programmatic fit must NOT immediately bounce the URL — watch the first load).
+- Exact URL `?lat=12.9716&lng=77.5946&radiusKm=5` shows a teal radius circle + only in-radius listings; map badge pills show ₹ prices, clusters show counts, clicking a cluster zooms in.
+- Click a card → map pans + ring highlight; click a marker → grid scrolls that card into view.
+- Mobile (<768px): List/Map segmented toggle switches views; map renders correctly after toggling (invalidateSize).
+- Save search from a geo URL → on /saved-searches the criteria shows geo; "run" returns the same in-radius results; non-matching new listings never trigger alerts for it.
+- Bad URL `?lat=91&lng=0&radiusKm=5` → inline error with the GEO_INVALID message, no crash; `?radiusKm=5` alone likewise.
+- Regression: existing filters/sort/pagination/share links behave exactly as before; agent/admin unaffected.
+
+## S10 delivery record (complete)
+S10 — Saved Searches & Notification Engine is complete: saved searches, matching sweep, notification inbox, email alerts, socket user-rooms.
+
+## S10 delivery record — original section (retained for the record)
 
 ## Status
 [~] In progress — implementation complete; automated verification green (395 tests, 21 suites); not declared complete pending human QA.

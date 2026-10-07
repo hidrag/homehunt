@@ -13,6 +13,10 @@ const criteriaSchema = new mongoose.Schema(
     maxPrice: { type: Number, default: null },
     bedrooms: { type: Number, default: null },
     sort: { type: String, default: null, trim: true },
+    // S11 geo criteria (ADR-031): all-or-none, validated together at save.
+    lat: { type: Number, default: null, min: -90, max: 90 },
+    lng: { type: Number, default: null, min: -180, max: 180 },
+    radiusKm: { type: Number, default: null, min: 0, max: 100 },
   },
   { _id: false },
 );

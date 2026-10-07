@@ -50,6 +50,14 @@ class PropertyController {
         data: result,
       });
     } catch (error) {
+      // Typed validation errors (e.g. S11 GEO_INVALID) map to their own
+      // envelope; anything else keeps the standard 500 fallback.
+      if (error && error.status && error.code) {
+        return res.status(error.status).json({
+          success: false,
+          error: { code: error.code, message: error.message },
+        });
+      }
       next(error);
     }
   };

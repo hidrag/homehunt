@@ -46,6 +46,13 @@ export const mapFrontendToBackendParams = (frontendParams = {}) => {
     }
   });
 
+  // S11 geospatial params are canonical under their backend names already.
+  ['lat', 'lng', 'radiusKm', 'bounds'].forEach((key) => {
+    if (frontendParams[key] !== undefined && frontendParams[key] !== '') {
+      backendParams[key] = frontendParams[key];
+    }
+  });
+
   return backendParams;
 };
 

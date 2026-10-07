@@ -25,13 +25,18 @@ const SaveSearchModal = ({ searchParams, onSaved }) => {
       maxPrice: searchParams.get('maxPrice') || '',
       bedrooms: searchParams.get('beds') || '',
       sort: searchParams.get('sort') || '',
+      // S11 (ADR-031): the geo trio is all-or-none; bounds is transient
+      // viewport state and is deliberately NOT persisted.
+      lat: searchParams.get('lat') || '',
+      lng: searchParams.get('lng') || '',
+      radiusKm: searchParams.get('radiusKm') || '',
     };
     // Server requires at least one criterion; pass everything, blanks ignored.
     return raw;
   };
 
   const hasCriteria = () =>
-    ['q', 'city', 'type', 'listing', 'minPrice', 'maxPrice', 'beds', 'sort'].some((key) => {
+    ['q', 'city', 'type', 'listing', 'minPrice', 'maxPrice', 'beds', 'sort', 'lat', 'radiusKm'].some((key) => {
       const value = searchParams.get(key);
       return value !== null && value !== '';
     });

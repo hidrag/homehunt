@@ -68,6 +68,8 @@ Exact endpoints and payloads should be documented as each domain is implemented.
   - `minPrice` (Number >= 0): Minimum price ($gte). Ignored if non-numeric/negative or if `minPrice > maxPrice`.
   - `maxPrice` (Number >= 0): Maximum price ($lte). Ignored if non-numeric/negative or if `minPrice > maxPrice`.
   - `bedrooms` (Number integer >= 0): Minimum bedrooms ($gte).
+  - `lat` + `lng` + `radiusKm` (S11, ADR-031): radius search — `$geoWithin $centerSphere` with the centre at `[lng, lat]` and radius `radiusKm / 6378.1` radians. **Strict-validate-on-present**: these three are an all-or-none group; `lat ∈ [-90, 90]`, `lng ∈ [-180, 180]`, `radiusKm ∈ (0, 100]`, all finite. Any malformed/partial geo input returns `400 GEO_INVALID` (never ignored, never degraded to an unbounded scan).
+  - `bounds` (S11, ADR-031 + amendment): viewport bounding box `minLat,minLng,maxLat,maxLng` — `$geoWithin $geometry` closed GeoJSON Polygon (2dsphere index-accelerated; legacy `$box` rejected after `explain()` showed COLLSCAN). Exactly 4 finite scalars; `minLat ≤ maxLat`, `minLng ≤ maxLng`; out-of-range or antimeridian-crossing values return `400 GEO_INVALID`. Combining `bounds` with a radius ANDs both clauses. No `$nearSphere` anywhere (sort/pagination contracts are preserved).
   - `sort` (String): Sort order whitelist:
     - `newest` (default) → `{ createdAt: -1 }`
     - `price_asc` → `{ price: 1 }`
@@ -101,6 +103,7 @@ URL Rules:
 - Empty parameters are removed (no `?q=&city=`).
 - Changing any filter or sort resets `page=1`.
 - Changing pagination preserves all existing filters.
+- **Geospatial errors (S11, ADR-031)**: malformed or partial `lat`/`lng`/`radiusKm`/`bounds` return `400` with `error.code = "GEO_INVALID"` (strict-validate-on-present; never silently ignored).
 
 **GET /api/properties/:id**
 - **Purpose**: Fetch a single property detail.
@@ -456,8 +459,8 @@ Transactional email is best-effort (ADR-024): `requested` → buyer + agent; `co
 All saved-search endpoints require authentication and are **buyer-only** (`requireAuth` + `requireRole('buyer')`; agents/admins receive `403 FORBIDDEN`). `user` is always `req.user.id`; every `:id` route is owner-scoped and returns `404 NOT_FOUND` for non-owners (enumeration guard). Criteria keys are whitelisted and type-validated at save; the Mongo filter is rebuilt at every execution (ADR-029).
 
 ### POST /api/saved-searches
-- Body: `{ "name": "<1–80 chars>", "criteria": { "search"?, "city"?, "propertyType"?, "listingType"?, "minPrice"?, "maxPrice"?, "bedrooms"?, "sort"? }, "frequency"?: "instant" }`.
-- Validation: `name` required, trimmed, ≤80; criteria values validated against the public-listing whitelist/ranges (unknown keys ignored; inverted price range rejected `400`); `frequency` only `instant` — `daily` → `400 VALIDATION_ERROR` ("Daily digest is not supported in this version").
+- Body: `{ "name": "<1–80 chars>", "criteria": { "search"?, "city"?, "propertyType"?, "listingType"?, "minPrice"?, "maxPrice"?, "bedrooms"?, "sort"?, "lat"?, "lng"?, "radiusKm"? }, "frequency"?: "instant" }`.
+- Validation: `name` required, trimmed, ≤80; criteria values validated against the public-listing whitelist/ranges (unknown keys ignored; inverted price range rejected `400`); S11 geo trio `lat`/`lng`/`radiusKm` is **all-or-none** with lat ∈ [-90,90], lng ∈ [-180,180], radiusKm ∈ (0,100] (`400 VALIDATION_ERROR` on violation); `frequency` only `instant` — `daily` → `400 VALIDATION_ERROR` ("Daily digest is not supported in this version").
 - Cap: max **20 active** saved searches per user → `429 SEARCH_LIMIT`.
 - Success `201`: `{ "success": true, "data": { "savedSearch": { ...SavedSearch } } }`.
 

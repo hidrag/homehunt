@@ -45,6 +45,10 @@ export const buildPropertyFilter = (input = {}) => {
     minPrice,
     maxPrice,
     bedrooms,
+    lat,
+    lng,
+    radiusKm,
+    bounds,
   } = input || {};
 
   const filter = {};
@@ -127,7 +131,130 @@ export const buildPropertyFilter = (input = {}) => {
     }
   }
 
+  //////////////////////////////////////////////////////////////
+  // 9. Geospatial criteria (S11, ADR-031)
+  //
+  // Strict-validate-on-present posture: a malformed lat/lng/radiusKm/bounds
+  // must NEVER silently degrade into an unbounded spatial scan (the
+  // deliberate asymmetry with the lenient S2 ignores, recorded in the ADR).
+  // Geometry is assembled ONLY from individually validated scalars, so a
+  // client (or a tampered saved-criteria document) can never inject an
+  // operator-shaped payload through these keys.
+  //////////////////////////////////////////////////////////////
+
+  Object.assign(filter, buildGeoFilter({ lat, lng, radiusKm, bounds }));
+
   return filter;
+};
+
+/** Earth mean radius in kilometres (WGS84 equatorial, per the locked decision). */
+export const EARTH_RADIUS_KM = 6378.1;
+
+const geoFail = (message) => {
+  throw { status: 400, code: "GEO_INVALID", message };
+};
+
+/** Parse a geo scalar. Returns null for "absent", never NaN/Infinity. */
+const parseGeoNumber = (value, label) => {
+  if (value === undefined || value === null || value === "") return null;
+  const num = typeof value === "string" ? Number(value.trim()) : value;
+  if (typeof num !== "number" || !Number.isFinite(num)) {
+    geoFail(`${label} must be a finite number`);
+  }
+  return num;
+};
+
+/**
+ * Build the geospatial fragment of a property filter (S11, ADR-031).
+ *
+ * Accepted shapes:
+ *  - Radius:  lat + lng + radiusKm together → $geoWithin $centerSphere
+ *             (radiusKm is REQUIRED when coordinates supply a center;
+ *             partial geo groups are rejected, never silently dropped).
+ *  - Box:     bounds=[minLat,minLng,maxLat,maxLng] → $geoWithin $geometry
+ *             (closed 5-point GeoJSON Polygon — 2dsphere index-accelerated;
+ *             the legacy $box form executes COLLSCAN. Validated exactly 4
+ *             finite scalars; antimeridian crossings (minLng > maxLng) are
+ *             rejected, never wrapped).
+ *  - Both:    combined under $and — Mongo forbids duplicate `location` keys.
+ *
+ * Returns {} when no geo key is present. Throws { status: 400,
+ * code: 'GEO_INVALID' } for malformed/incomplete geo input.
+ */
+export const buildGeoFilter = (input = {}) => {
+  const rawLat = parseGeoNumber(input.lat, "lat");
+  const rawLng = parseGeoNumber(input.lng, "lng");
+  const rawRadius = parseGeoNumber(input.radiusKm, "radiusKm");
+  const rawBounds = input.bounds;
+
+  const hasCenter = rawLat !== null || rawLng !== null;
+
+  if (hasCenter || rawRadius !== null) {
+    if (rawLat === null || rawLng === null || rawRadius === null) {
+      geoFail("lat, lng and radiusKm must be provided together");
+    }
+    if (rawLat < -90 || rawLat > 90) geoFail("lat must be between -90 and 90");
+    if (rawLng < -180 || rawLng > 180) geoFail("lng must be between -180 and 180");
+    if (rawRadius <= 0 || rawRadius > 100) geoFail("radiusKm must be greater than 0 and at most 100");
+  }
+
+  const clauses = [];
+
+  if (hasCenter) {
+    clauses.push({
+      location: {
+        $geoWithin: {
+          $centerSphere: [[rawLng, rawLat], rawRadius / EARTH_RADIUS_KM],
+        },
+      },
+    });
+  }
+
+  if (rawBounds !== undefined && rawBounds !== null && rawBounds !== "") {
+    // Exactly 4 scalars: minLat,minLng,maxLat,maxLng (URL order is
+    // latitude-first; storage/box order is GeoJSON [lng, lat]).
+    const parts = String(rawBounds)
+      .split(",")
+      .map((part) => part.trim());
+    if (parts.length !== 4 || parts.some((part) => part === "")) {
+      geoFail("bounds must be minLat,minLng,maxLat,maxLng");
+    }
+    const [minLat, minLng, maxLat, maxLng] = parts.map((part, i) =>
+      parseGeoNumber(part, `bounds[${i}]`)
+    );
+    if (minLat < -90 || minLat > 90 || maxLat < -90 || maxLat > 90) {
+      geoFail("bounds latitudes must be between -90 and 90");
+    }
+    if (minLng < -180 || minLng > 180 || maxLng < -180 || maxLng > 180) {
+      geoFail("bounds longitudes must be between -180 and 180");
+    }
+    if (minLat > maxLat) geoFail("bounds minLat cannot exceed maxLat");
+    if (minLng > maxLng) {
+      // Antimeridian crossings are explicitly rejected (locked decision 4):
+      // no wrap heuristics, no half-world boxes.
+      geoFail("bounds crossing the antimeridian are not supported");
+    }
+    clauses.push({
+      location: {
+        $geoWithin: {
+          $geometry: {
+            type: 'Polygon',
+            coordinates: [[
+              [minLng, minLat],
+              [maxLng, minLat],
+              [maxLng, maxLat],
+              [minLng, maxLat],
+              [minLng, minLat],
+            ]],
+          },
+        },
+      },
+    });
+  }
+
+  if (clauses.length === 0) return {};
+  if (clauses.length === 1) return clauses[0];
+  return { $and: clauses };
 };
 
 /**
@@ -181,6 +308,11 @@ export const buildCanonicalQuery = (criteria = {}) => {
   put("minPrice", criteria.minPrice);
   put("maxPrice", criteria.maxPrice);
   put("bedrooms", criteria.bedrooms);
+  // S11 geo criteria (ADR-031): canonical keys match the API query vocabulary.
+  // (bounds is a transient viewport filter — never stored in saved criteria.)
+  put("lat", criteria.lat);
+  put("lng", criteria.lng);
+  put("radiusKm", criteria.radiusKm);
   put("sort", criteria.sort && Object.hasOwn(SORT_OPTIONS, criteria.sort) ? criteria.sort : undefined);
   const qs = params.toString();
   return qs ? `?${qs}` : "";

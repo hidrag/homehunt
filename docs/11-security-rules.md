@@ -61,6 +61,12 @@ Use environment variables.
 - Socket delivery: authenticated sockets auto-join `user:${socket.user.id}` from the verified handshake token (no client-supplied room names — no join-authorization surface). `notification:new` is emitted only after the Notification document persists.
 - Notification bodies are never logged; emails use the shared `escapeHtml` templates.
 
+## Geospatial queries (S11, ADR-031)
+- Geo query parameters are **strict-validated, then decomposed**: only individually validated finite scalars ever enter a Mongo operator. Client-supplied documents/objects can never reach `$geoWithin` — operator-shaped payloads through `lat`/`lng`/`radiusKm`/`bounds` fail the scalar type check first.
+- **Malformed geo input is rejected `400 GEO_INVALID`, never ignored** (deliberate asymmetry with lenient S2 enum ignores): a partially-malformed viewport must never silently degrade into an unbounded spatial scan (COLLSCAN/memory-exhaustion defense). Radius is capped at 100 km; antimeridian-crossing boxes rejected; ranges [-90,90] / [-180,180].
+- Saved geo criteria re-validate and rebuild the filter at every execution (ADR-029 rebuild-at-execute extended to geo), so a tampered SavedSearch document still cannot yield an operator-shaped geo query.
+- Maps render OSM tiles with required attribution; popup content uses DOM `textContent` only (never `innerHTML`); no new map dependencies (no markercluster, no react-leaflet — per ADR-007/ADR-032).
+
 ## Uploads
 Validate:
 - file type

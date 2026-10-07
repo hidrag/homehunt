@@ -31,7 +31,7 @@
   - `notification.mongo.test.js`: S10 notification triggers through the REAL service paths — listing-match sweep (match/no-match, email via the fake provider, `lastNotifiedAt`), visit-update in-app notifications, inquiry email + in-app to the agent, message alerts to the counterpart only, inbox pagination/unread filter, mark-read idempotence, mark-all, recipient-scoped delete, unread counts, and failure isolation (notification/email errors never fail the primary mutation).
   - `s10.api.test.js`: HTTP-level S10 matrices — buyer-only saved-search gates (agent/admin 403), authentication, malformed ids, standard envelopes, notification personal-inbox scoping, unread-count shape, mark-all, and pagination clamps. Own app instance for rate-limit isolation.
   - `notification.socket.test.js`: Real Socket.io verification of the ADR-030 user-room model — authenticated sockets auto-join `user:${id}` on connect, `notification:new` reaches only the recipient's room (persisted BEFORE the emit, verified by re-reading the document), multiple sockets of one user all receive it, and unauthenticated handshakes are still rejected.
-- Current status: 395 tests passing across 21 test suites (S9 baseline 341 + 24 S10 saved-search + 16 S10 notification service + 11 S10 HTTP + 3 S10 socket).
+- Current status: 435 tests passing across 24 test suites (S10 baseline 395 + 15 S11 geo-filter unit + 8 S11 geo mongo accuracy/index + 17 S11 geo HTTP envelope).
 - Regression gate: all prior sprint test suites (34 S1–S3 tests + 19 S4 auth tests) remain unmodified and green throughout S5.
 
 ### Component & Frontend
