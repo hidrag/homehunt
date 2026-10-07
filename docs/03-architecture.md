@@ -97,6 +97,7 @@ Controllers should remain thin. Business logic belongs in services.
 - Message
 - Notification
 - AnalyticsEvent
+- Poi
 - PropertyDocument
 
 ## Architectural rule

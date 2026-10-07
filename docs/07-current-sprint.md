@@ -1,10 +1,46 @@
 # HomeHunt — Current Sprint
 
 ## Sprint
+S12 — Neighborhood Explorer & Local Context
+
+## Status
+[~] In progress — implementation complete; automated verification green (470 tests, 27 suites); not declared complete pending human QA.
+
+## S12 Locked Decisions (user-approved 2026-10-07)
+1. Data: internal `pois` collection (2dsphere), deterministically seeded via `server/scripts/seed/pois.js` (~190 POIs across the 13 seeded cities; seeded Goa listings intentionally POI-free). Zero runtime external POI/network dependency (ADR-033).
+2. Endpoint: `GET /api/properties/:id/neighborhood`, public. `radiusKm` default 3, strict (0,10], malformed → `400 GEO_INVALID`; `category` whitelist filter, unknown values silently ignored. `400 INVALID_ID` / `404 NOT_FOUND`.
+3. Computation: single `$geoWithin $centerSphere` sweep (IXSCAN); Haversine metres in memory; walk minutes `ceil(m/80)`; categories sorted by distance, top-10 each; walk score 0–100 (weights transit .30 / school .20 / grocery .20 / healthcare .15 / park .15, utility 1 ≤400 m → 0 at 1600 m, saturation 5). Zero POIs → `dataAvailable:false`, `walkScore:null` (never 0).
+4. Out of scope: crime data, driving times, saved-search neighborhood criteria, any paid/external POI or routing API.
+5. UI: `NeighborhoodSection.jsx` on ListingDetail (category tabs, walk badges, score gauge + method transparency, first-class empty state); `PropertyMap.jsx` POI layer groups without map re-init (ADR-007).
+
+## Planned deliverables
+- Poi model + deterministic seed chain wiring (properties → POIs)
+- geoDistance lib (Haversine, utility decay, score) + neighborhood service/controller/route
+- ADR-033/034 + docs (04/05/07/10/11/08/01/02)
+- Tests: geoDistance.unit (16) + neighborhood.mongo (12) + neighborhood.api (7); 435 baseline preserved
+
+## S12 Explicitly out of scope
+- Crime/mock safety data (descoped permanently — locked decision 4), driving-time estimates, Street View, geocoding, POI admin CRUD, saved-search neighborhood criteria, server-side caching (S16 evidence-based escalation only).
+
+## S12 status
+Verification green: 470 tests / 27 suites, server lint clean, client lint clean (--zero-warnings incl. new files), client build clean. Not declared complete pending human QA.
+
+## S12 manual QA checklist (human)
+- Reseed dev DB (`npm run seed` in server/) → properties + ~190 POIs seeded; console shows POI count and the Goa-POI-free note.
+- Open a Mumbai/Bengaluru listing → "Neighborhood & Nearby Amenities" section shows a Walk Score badge, category tabs (All/Transit/Schools/Grocery/Healthcare/Parks), POI cards with distance + walk minutes, and "How is this calculated?" expands to the formula with weights.
+- Switch tabs → list filters AND the Location map below re-tints to only that category's markers; map shows the property pin + coloured POI dots; clicking a POI marker opens a name · distance popup; the map fits all visible points. No "Map container is already initialized" console errors after tab toggling / back-nav / StrictMode double-mount (dev mode).
+- Open the Goa listing → section shows the friendly "Local amenity data isn't available yet" empty state; map shows only the property pin; no score badge; nothing crashes.
+- Direct URL `/api/properties/<id>/neighborhood` (no cookie) returns 200 envelope; `?radiusKm=11` and `?radiusKm=abc` return 400 GEO_INVALID; unknown id → 404; malformed id → 400 INVALID_ID.
+- Regression: property detail page (gallery, highlights, amenities, inquiry/visit/message), listings/map page, and all other flows behave exactly as before.
+
+## S11 delivery record (complete)
+S11 — Advanced Geo Search is complete: radius/bounds geo search, saved-search geo criteria, MapResults viewport map, all committed (2b45ea2).
+
+## Sprint
 S11 — Advanced Geo Search
 
 ## Status
-[x] Complete (Ready for human QA) — automated verification green (435 tests, 24 suites, incl. $geometry bounds IXSCAN amendment); awaiting human QA sign-off before commit.
+[x] Complete — committed and pushed (2b45ea2). Verification at sign-off: 435 tests / 24 suites, server lint clean, client lint clean, client build clean.
 
 ## S11 Locked Decisions (user-approved 2026-10-07)
 1. Spatial querying: `$geoWithin` `$centerSphere` (radius) and `$geoWithin` `$geometry` closed Polygon (bounds — amended from `$box` for 2dsphere index acceleration). No `$nearSphere` (sort/pagination contracts preserved).

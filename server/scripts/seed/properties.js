@@ -9,6 +9,7 @@ dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 import Property from '../../src/models/Property.js';
 import { seedUsers } from "./users.js";
+import { seedPois } from "./pois.js";
 
 const DB_URI = process.env.MONGODB_URI;
 
@@ -731,6 +732,11 @@ export const seedDB = async () => {
     console.log('Inserting seed data...');
     await Property.insertMany(seedProperties);
     console.log(`✅ Successfully seeded ${seedProperties.length} deterministic properties.`);
+
+    // S12 (ADR-033): POIs derive from the persisted listing coordinates,
+    // so they must be generated AFTER properties exist.
+    console.log('Seeding deterministic neighborhood POIs...');
+    await seedPois();
 
     console.log('Closing connection...');
     await mongoose.connection.close();

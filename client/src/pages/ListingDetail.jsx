@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { MapPin, Bed, Bath, Square, ArrowLeft, Building, ShieldCheck } from 'lucide-react';
 import propertyApi from '../services/propertyApi';
@@ -8,6 +8,7 @@ import BookmarkButton from "../components/ui/BookmarkButton";
 import InquiryForm from "../components/ui/InquiryForm";
 import VisitForm from "../components/ui/VisitForm";
 import MessageAgentButton from "../components/ui/MessageAgentButton";
+import NeighborhoodSection from "../components/property/NeighborhoodSection";
 
 const ListingDetail = () => {
   const { id } = useParams();
@@ -16,6 +17,17 @@ const ListingDetail = () => {
   const [property, setProperty] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // S12: neighborhood overlay state for the Location map (page-local per ADR-005).
+  const [neighborhoodPois, setNeighborhoodPois] = useState(null);
+  const [mapCategory, setMapCategory] = useState('all');
+
+  const handlePoisChange = useCallback((data) => {
+    setNeighborhoodPois(data?.dataAvailable ? data.categories : null);
+  }, []);
+
+  const handleCategoryChange = useCallback((category) => {
+    setMapCategory(category);
+  }, []);
 
   useEffect(() => {
     const fetchProperty = async () => {
@@ -200,12 +212,26 @@ const ListingDetail = () => {
             </div>
           )}
 
-          {/* 7. Location Map */}
+          {/* 7. Neighborhood Explorer (S12) */}
+          <div className="mb-8">
+            <NeighborhoodSection
+              propertyId={property._id}
+              onPoisChange={handlePoisChange}
+              onCategoryChange={handleCategoryChange}
+            />
+          </div>
+
+          {/* 8. Location Map */}
           <div className="mb-8">
             <h2 className="mb-4 text-xl font-semibold text-gray-900">
               Location
             </h2>
-            <PropertyMap location={property.location} title={property.title} />
+            <PropertyMap
+              location={property.location}
+              title={property.title}
+              pois={neighborhoodPois}
+              activeCategory={mapCategory}
+            />
           </div>
         </div>
 

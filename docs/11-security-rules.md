@@ -84,3 +84,11 @@ Use appropriate:
 - rate limiting
 - secure cookie configuration
 - error handling that does not leak secrets or stack traces in production
+
+## Neighborhood / POI queries (S12, ADR-033/ADR-034)
+- `GET /api/properties/:id/neighborhood` is a public read (parity with property detail) — it exposes only non-user POI data; there is no enumeration or authorization surface beyond what the public listing page already shows.
+- Radius is strict-validated scalars only (`(0, 10]`, `400 GEO_INVALID` on malformed); the operator is assembled from validated numbers, so operator-shaped payloads can never reach `$centerSphere`. The 10 km cap is the spatial-scan/DoS bound, enforced before any query executes.
+- `category` is whitelist-only (enum match on string primitives); unknown/object/values are ignored — no regex or user text enters any query (no ReDoS surface).
+- One indexed `2dsphere` sweep serves the whole payload (no N+1); category grouping/top-10/score are in-memory over the radius-capped candidate set.
+- POI data is internal-seeded: no runtime external API, no new secrets or environment variables (ADR-033).
+- Client renders POI names via React text nodes and Leaflet `textContent` popups only; category colors come from a fixed local map — no server-supplied markup or URLs are rendered.

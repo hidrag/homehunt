@@ -1,5 +1,6 @@
 import express from 'express';
 import propertyController from '../controllers/property.controller.js';
+import neighborhoodController from '../controllers/neighborhood.controller.js';
 import { requireAuth, requireRole } from '../middlewares/auth.middleware.js';
 import { requireOwnership } from '../middlewares/ownership.middleware.js';
 import Property from '../models/Property.js';
@@ -10,6 +11,10 @@ router.get('/', propertyController.getProperties);
 
 // IMPORTANT: /mine must be declared BEFORE /:id to avoid route collision
 router.get('/mine', requireAuth, requireRole('agent', 'admin'), propertyController.getMyProperties);
+
+// S12 — Neighborhood context (public read, parity with GET /:id). Declared
+// before the generic /:id handler per the route-ordering convention above.
+router.get('/:id/neighborhood', neighborhoodController.getNeighborhood);
 
 router.get('/:id', propertyController.getPropertyById);
 

@@ -87,6 +87,18 @@ export const propertyApi = {
   },
 
   /**
+   * Fetch neighborhood context (nearby POIs + walk score) for a listing.
+   * Public endpoint; params: { radiusKm?, category? }.
+   */
+  getNeighborhood: async (id, params = {}, options = {}) => {
+    const response = await api.get(`/properties/${id}/neighborhood`, {
+      params,
+      ...options,
+    });
+    return response.data;
+  },
+
+  /**
    * Create a property listing (agent/admin; ownership derived server-side)
    */
   createProperty: async (payload) => {

@@ -571,3 +571,41 @@ All conversation endpoints require authentication (`requireAuth`). Pagination fo
 - Client → server: `conversation:join` (participants only; non-participants receive `{ error: 'NOT_FOUND' }` and are disconnected), `conversation:leave`.
 - Server → client: `message:new` (sanitized message document, emitted after the DB write), `conversation:updated` (unread/lastMessage refresh after a read).
 - Admins never join rooms and cannot post (S9 locked decision).
+
+## Neighborhood API (S12)
+
+### GET /api/properties/:id/neighborhood
+- Auth: none (public read, exact parity with `GET /api/properties/:id`).
+- Params: `id` (ObjectId). Query:
+  - `radiusKm` (optional): search radius in km, default `3`, strict range `(0, 10]`. Malformed/out-of-range values return `400 GEO_INVALID` (ADR-031 strict-validate-on-present reused; the cap is also the spatial-scan DoS bound). Objects/arrays/NaN are rejected before any query is built.
+  - `category` (optional, repeatable): whitelist `transit|school|grocery|healthcare|park`. Unknown or malformed values are silently ignored. When provided, only the listed categories appear in the `categories` map — the walk score ALWAYS computes from all in-range POIs.
+- Success `200`:
+```json
+{
+  "success": true,
+  "data": {
+    "neighborhood": {
+      "property": "<id>",
+      "radiusKm": 3,
+      "dataAvailable": true,
+      "walkScore": {
+        "total": 74,
+        "weights": { "transit": 0.3, "school": 0.2, "grocery": 0.2 },
+        "categories": { "transit": 0.8, "school": 0.4, "grocery": 1, "healthcare": 0, "park": 0.6 },
+        "constants": { "nearM": 400, "maxUsefulM": 1600, "saturation": 5, "walkMetersPerMinute": 80 }
+      },
+      "categories": {
+        "transit": [
+          { "id": "<poiId>", "name": "Carter Road Metro Station", "category": "transit",
+            "distanceMeter": 850, "walkMinutes": 11,
+            "location": { "type": "Point", "coordinates": [72.828, 19.056] } }
+        ]
+      }
+    }
+  }
+}
+```
+- Each category array is sorted by `distanceMeter` ASC and capped at the 10 nearest entries. `walkMinutes = ceil(distanceMeter / 80)` (4.8 km/h, deterministic).
+- **Zero POIs in range:** `dataAvailable: false`, `walkScore: null`, every category array empty — never a 0 score (locked S12 decision 3; ADR-034).
+- Errors: `400 INVALID_ID` (malformed ObjectId), `400 GEO_INVALID` (bad radius), `404 NOT_FOUND` (unknown id).
+- Scoring formula published in ADR-034; weights/constants are a breaking-change surface.

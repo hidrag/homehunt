@@ -16,6 +16,7 @@ MongoDB Atlas with Mongoose.
 - notifications
 - analyticsEvents
 - propertyDocuments
+- pois
 
 ## Property location contract
 Use GeoJSON Point:
@@ -279,3 +280,21 @@ Collection: `notifications`
 - `{ recipient: 1, read: 1, createdAt: -1 }` — unread count/filter
 
 **Lifecycle (ADR-030):** retained indefinitely (locked decision 5); the recipient may delete individual notifications (own-only, 404 on miss). Mark-read is the only other mutation.
+
+## POI Schema (S12)
+
+Collection: `pois`
+
+**Fields (ADR-033):**
+- `_id` (ObjectId)
+- `name` (String, required, trimmed, max 120)
+- `category` (String, enum `['transit', 'school', 'grocery', 'healthcare', 'park']`, required)
+- `location` (GeoJSON Point per the location contract, `[longitude, latitude]`, required)
+- `address` (String, optional, trimmed, max 200 — display hint only)
+- `city` (String, optional, trimmed, lowercase, max 100 — seed provenance/debug only; never a query field)
+- `createdAt`, `updatedAt` (Mongoose timestamps)
+
+**Indexes:**
+- `location` (`2dsphere`) — the single POI query served is the neighborhood radius sweep: `$geoWithin $centerSphere` around the property's coordinates (ADR-031 operator, IXSCAN-verified). Category grouping and top-10 slicing happen in memory over the radius-capped candidate set; deliberately no compound category index.
+
+**Sourcing:** deterministically seeded via `server/scripts/seed/pois.js` (invoked after properties insert; pure offset-ring generator → byte-deterministic; production-refused). Seeded Goa listings are intentionally POI-free within the 10 km max radius (rural fixture). No runtime external POI dependency (locked S12 decision 1; ADR-033).

@@ -75,10 +75,10 @@ Login → Dashboard → Review Listings → Approve/Reject → Manage Users/Agen
 - Radius search
 - Polygon search
 - Heatmaps
-- Nearby schools/hospitals/transport
-- Crime/mock neighborhood data
-- Walkability/livability
-- Street View integration where practical
+- Nearby schools/hospitals/transport (S12: internal seeded POIs — transit/schools/grocery/healthcare/parks with Haversine distance and walking minutes; crime data formally descoped; driving times descoped — walking only, offline-first)
+- Crime/mock neighborhood data — DESCOPED (mock crime data anchored to real coordinates is indefensible; ADR-034)
+- Walkability/livability (S12: deterministic 0–100 walk score, published formula, ADR-034)
+- Street View integration — descoped (Google-proprietary; offline-first policy)
 - Virtual tour support
 - Mortgage/EMI calculator
 - PDF calculator report

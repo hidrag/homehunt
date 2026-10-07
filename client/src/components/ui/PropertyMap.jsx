@@ -3,6 +3,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapPinOff, ExternalLink } from 'lucide-react';
 import { isValidGeoPoint, toLeafletLatLng, toOsmLink } from '../../lib/propertyLocation';
+import { POI_COLORS } from '../../lib/poiCategories';
 
 // Safe custom SVG marker icon without asset path dependencies
 const createMarkerIcon = () => {
@@ -15,13 +16,44 @@ const createMarkerIcon = () => {
   });
 };
 
+/**
+ * S12 (ADR-034): POI category tints for the detail-map layer groups.
+ * Keys mirror the server POI whitelist; unknown categories fall back to slate.
+ * Lives in lib/ (shared with NeighborhoodSection) to keep this module a
+ * single component export.
+ */
+
+const createPoiIcon = (category) => {
+  const color = POI_COLORS[category] || '#64748b';
+  return L.divIcon({
+    className: 'homehunt-poi-pin',
+    html: `<div style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;background-color:${color};color:white;border-radius:50%;box-shadow:0 2px 4px rgba(0,0,0,0.3);border:2px solid white;"></div>`,
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
+    popupAnchor: [0, -13],
+  });
+};
+
+const formatPoiDistance = (distanceMeter) => {
+  if (typeof distanceMeter !== 'number' || !Number.isFinite(distanceMeter)) return '';
+  return distanceMeter < 1000
+    ? `${Math.round(distanceMeter)} m`
+    : `${(distanceMeter / 1000).toFixed(1)} km`;
+};
+
 const PropertyMap = ({
   location,
   title = 'Property',
   className = '',
+  // S12: optional neighborhood overlay. pois is the server `categories` map
+  // ({ transit: [...], park: [...] }); activeCategory filters which layer
+  // groups are visible ('all' shows every category).
+  pois = null,
+  activeCategory = 'all',
 }) => {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const poiLayersRef = useRef(new Map());
   const [mapError, setMapError] = useState(false);
 
   const isValid = isValidGeoPoint(location);
@@ -36,10 +68,12 @@ const PropertyMap = ({
     }
 
     const container = mapContainerRef.current;
+    const poiLayers = poiLayersRef.current;
     let timer;
+    let map = null;
 
     try {
-      const map = L.map(container, {
+      map = L.map(container, {
         scrollWheelZoom: false,
         zoomControl: true,
       }).setView(latLng, 14);
@@ -75,12 +109,65 @@ const PropertyMap = ({
       if (timer) {
         clearTimeout(timer);
       }
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
+      // Cleanup uses effect-local copies, never a `.current` read (oxlint
+      // react-hooks rule): map and poiLayers are fixed for this effect run.
+      poiLayers.forEach((group) => group.remove());
+      poiLayers.clear();
+      if (map) {
+        map.remove();
       }
+      mapInstanceRef.current = null;
     };
   }, [isValid, latLng, title]);
+
+  // S12 (ADR-034 / ADR-007 lifecycle rule): POI markers live in per-category
+  // L.layerGroup()s rebuilt by THIS effect only — the map instance itself is
+  // never re-initialized when the overlay data or the active category
+  // changes. Teardown removes each layer group cleanly.
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || mapError) return;
+
+    const layers = poiLayersRef.current;
+    layers.forEach((group) => group.remove());
+    layers.clear();
+
+    if (!pois || typeof pois !== 'object') return;
+
+    const visiblePoints = [latLng];
+    for (const [category, list] of Object.entries(pois)) {
+      if (!Array.isArray(list)) continue;
+      if (activeCategory !== 'all' && category !== activeCategory) continue;
+
+      const group = L.layerGroup();
+      for (const poi of list) {
+        const coords = poi.location?.coordinates;
+        if (!Array.isArray(coords) || coords.length !== 2) continue;
+        const [poiLng, poiLat] = coords;
+        if (!Number.isFinite(poiLat) || !Number.isFinite(poiLng)) continue;
+
+        const marker = L.marker([poiLat, poiLng], { icon: createPoiIcon(category) });
+        const popupNode = document.createElement('div');
+        popupNode.className = 'text-xs font-medium text-gray-800 py-0.5 px-0.5';
+        // textContent only (never innerHTML) — docs/11 map XSS rule.
+        popupNode.textContent = `${poi.name}${poi.distanceMeter != null ? ` \u00B7 ${formatPoiDistance(poi.distanceMeter)}` : ''}`;
+        marker.bindPopup(popupNode);
+        group.addLayer(marker);
+        if (activeCategory === 'all' || category === activeCategory) {
+          visiblePoints.push([poiLat, poiLng]);
+        }
+      }
+
+      group.addTo(map);
+      layers.set(category, group);
+    }
+
+    // Auto-fit the frame to the property + visible POIs (bounded zoom so a
+    // 10 km sweep never leaves the property unreadably small).
+    if (visiblePoints.length > 1) {
+      map.fitBounds(L.latLngBounds(visiblePoints), { padding: [30, 30], maxZoom: 16 });
+    }
+  }, [pois, activeCategory, mapError, latLng]);
 
   // Fallback for missing/invalid coordinates or Leaflet init error
   if (!isValid || !latLng || mapError) {

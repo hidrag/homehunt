@@ -58,6 +58,14 @@ S3 did not introduce shadcn/ui or Radix UI dependencies and continues using Tail
 - **Price Display**:
   - Rendered as styled semantic `<p>` (`text-3xl font-bold text-indigo-700`), never as a heading element (`h2`/`h3`), preserving a clean document outline for assistive technologies.
 
+### Neighborhood Explorer (`NeighborhoodSection.jsx`, S12)
+- **Placement**: ListingDetail left column between Amenities and Location; `h2` section heading per the hierarchy spec.
+- **Score gauge**: circular badge (`h-14 w-14 rounded-full border-4 border-indigo-600 text-indigo-700`) with `aria-label`; sub-label states the radius; "How is this calculated?" disclosure (`min-h-11` button, `aria-expanded`) lists the published constants and per-category weights/usage (ADR-034 transparency).
+- **Category tabs**: pill buttons (`min-h-11`, `rounded-full`, active `border-indigo-600 bg-indigo-600 text-white`), Lucide icons (All=default `Footprints`, Transit=`Bus`, Schools=`GraduationCap`, Grocery=`ShoppingCart`, Healthcare=`Hospital`, Parks=`TreePine`); `role="tablist"`/`role="tab"`/`aria-selected`. The active tab drives BOTH the list and the map overlay layers.
+- **POI rows**: two-column card grid; category icon chip left; name + category label; right-aligned distance badge (`m` < 1 km else `km` with 1 decimal) and `Footprints`-icon "N min walk" line. Colors are plain gray-scale + indigo accents (AA contrast).
+- **Empty state (first-class)**: `dataAvailable:false` renders a neutral `MapPinOff` panel "Local amenity data isn't available around this location yet" — never an error, never a 0 score. Loading spinner and error+Retry states per the required-states rule.
+- **Map overlay (`PropertyMap.jsx`)**: optional `pois`/`activeCategory` props; per-category `L.layerGroup()`s with 26px circular `divIcon`s tinted by `client/src/lib/poiCategories.js` (`POI_COLORS` — shared constants module so both components stay lint-clean); popups built with `textContent` only; dedicated layer effect rebuilds groups WITHOUT re-initializing the map (ADR-007); `fitBounds(property + visible POIs, maxZoom 16)` when overlay points are present; groups removed on cleanup. Map container/attribution/scrollWheel rules unchanged.
+
 ## Required states
 Major components must account for:
 - loading (skeletons / spinners)
