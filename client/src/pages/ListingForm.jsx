@@ -1,16 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { AlertCircle, ArrowLeft } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Trash2, Upload } from 'lucide-react';
 import propertyApi from '../services/propertyApi';
 
 const PROPERTY_TYPES = ['apartment', 'house', 'villa', 'condo', 'land'];
 const LISTING_TYPES = ['sale', 'rent'];
 const PROPERTY_STATUSES = ['available', 'under_offer', 'sold', 'rented'];
 const IMAGE_URL_PATTERN = /^https?:\/\/\S+$/i;
+const IMAGE_ACCEPT = '.jpg,.jpeg,.png,.webp';
+const IMAGE_MAX_PER_REQUEST = 5;
 
 /**
  * Splits a textarea/input value into a clean list (newline or comma separated).
@@ -120,6 +122,19 @@ const listingSchema = yup.object({
     .test('image-urls', 'Each image must be a valid http(s) URL', (value) =>
       splitList(value).every((url) => IMAGE_URL_PATTERN.test(url)),
     ),
+  // S13: server normalizes share URLs to canonical embed URLs; the client
+  // only requires a syntactically valid URL here (whitelist enforced by the
+  // server on save and re-checked before any iframe renders).
+  virtualTourUrl: yup
+    .string()
+    .trim()
+    .test(
+      'tour-url',
+      'Enter a valid https URL (YouTube, Vimeo, Matterport or Kuula)',
+      (value) => !value || IMAGE_URL_PATTERN.test(value.trim()),
+    )
+    .max(500, 'URL cannot exceed 500 characters')
+    .notRequired(),
 });
 
 const inputClass = (hasError) =>
@@ -144,6 +159,28 @@ const ListingForm = () => {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
 
+  // S13 — verified photo manager (uploads need a saved property, edit only).
+  const [savedImages, setSavedImages] = useState([]);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
+  const [uploadNotice, setUploadNotice] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const loadSavedImages = useCallback(async () => {
+    if (!isEdit) return;
+    try {
+      const result = await propertyApi.getImages(id);
+      setSavedImages(result?.data?.images || []);
+    } catch (err) {
+      // Owner-scoped endpoint; failures are surfaced in the panel only.
+      console.error('Failed to load listing photos:', err);
+    }
+  }, [id, isEdit]);
+
+  useEffect(() => {
+    loadSavedImages();
+  }, [loadSavedImages]);
+
   const {
     register,
     handleSubmit,
@@ -165,6 +202,7 @@ const ListingForm = () => {
       country: 'India',
       amenities: '',
       images: '',
+      virtualTourUrl: '',
     },
   });
 
@@ -213,6 +251,7 @@ const ListingForm = () => {
           area: property.area,
           amenities: (property.amenities || []).join(', '),
           images: (property.images || []).join('\n'),
+          virtualTourUrl: property.virtualTourUrl || '',
         });
       } catch (err) {
         if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') {
@@ -260,6 +299,10 @@ const ListingForm = () => {
       if (data.bedrooms !== undefined) payload.bedrooms = data.bedrooms;
       if (data.bathrooms !== undefined) payload.bathrooms = data.bathrooms;
       if (data.area !== undefined) payload.area = data.area;
+      const tour = (data.virtualTourUrl || '').trim();
+      // Only send the field when it changes (null clears server-side).
+      if (tour) payload.virtualTourUrl = tour;
+      else if (!isEdit) payload.virtualTourUrl = null;
 
       if (isEdit) {
         payload.status = data.status;
@@ -276,6 +319,42 @@ const ListingForm = () => {
       );
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  /**
+   * S13 — upload selected files as verified photos (server sniffs bytes,
+   * enforces type/size/20-cap, and appends the normalized entries).
+   */
+  const handlePhotoUpload = async (event) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (files.length === 0) return;
+    setUploadBusy(true);
+    setUploadError(null);
+    setUploadNotice(null);
+    try {
+      const result = await propertyApi.uploadImages(id, files);
+      setSavedImages(result?.data?.images || []);
+      setUploadNotice(`Uploaded ${files.length} photo${files.length === 1 ? '' : 's'}.`);
+    } catch (err) {
+      setUploadError(err.response?.data?.error?.message || 'Upload failed. Please try again.');
+    } finally {
+      setUploadBusy(false);
+    }
+  };
+
+  const handlePhotoRemove = async (imageId) => {
+    setUploadBusy(true);
+    setUploadError(null);
+    setUploadNotice(null);
+    try {
+      await propertyApi.deleteImage(id, imageId);
+      setSavedImages((prev) => prev.filter((img) => img.imageId !== imageId));
+    } catch (err) {
+      setUploadError(err.response?.data?.error?.message || 'Could not remove the photo.');
+    } finally {
+      setUploadBusy(false);
     }
   };
 
@@ -664,8 +743,80 @@ const ListingForm = () => {
                   />
                   {errors.images && <p className="mt-1 text-xs text-red-600">{errors.images.message}</p>}
                   <p className="mt-1 text-xs text-gray-400">
-                    One https:// image URL per line. Image uploads arrive with the Cloudinary
-                    pipeline (S13).
+                    One https:// image URL per line{isEdit ? ', or upload verified photos below' : ''}. Max 20 images per listing.
+                  </p>
+                </div>
+              </div>
+
+              {/* S13 — verified photo uploads (edit mode: needs a saved listing) */}
+              {isEdit && (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-gray-900">Verified photo uploads</h3>
+                    <label className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                      <Upload className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>{uploadBusy ? 'Uploading…' : 'Upload photos'}</span>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="sr-only"
+                        accept={IMAGE_ACCEPT}
+                        multiple
+                        disabled={uploadBusy}
+                        onChange={handlePhotoUpload}
+                        aria-label="Upload listing photos"
+                      />
+                    </label>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    JPEG, PNG or WebP · max {IMAGE_MAX_PER_REQUEST} per upload · 5 MB each · stored on the media provider.
+                  </p>
+                  {uploadError && (
+                    <p role="alert" className="mt-2 text-xs text-red-700">{uploadError}</p>
+                  )}
+                  {uploadNotice && (
+                    <p role="status" className="mt-2 text-xs text-green-700">{uploadNotice}</p>
+                  )}
+                  {savedImages.length > 0 ? (
+                    <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      {savedImages.map((img) => (
+                        <li key={img.imageId} className="relative overflow-hidden rounded-lg border border-gray-200 bg-white">
+                          <img src={img.url} alt={img.alt || 'Listing photo'} className="aspect-square w-full object-cover" />
+                          <button
+                            type="button"
+                            disabled={uploadBusy}
+                            onClick={() => handlePhotoRemove(img.imageId)}
+                            className="absolute right-1 top-1 inline-flex min-h-8 min-w-8 items-center justify-center rounded-md bg-white/90 p-1.5 text-red-600 shadow hover:bg-white disabled:opacity-50"
+                            aria-label="Remove photo"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-3 text-xs text-gray-500">No uploaded photos yet.</p>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <label htmlFor="virtualTourUrl" className={labelClass}>
+                  Virtual tour URL
+                </label>
+                <div className="mt-1">
+                  <input
+                    id="virtualTourUrl"
+                    type="url"
+                    {...register('virtualTourUrl')}
+                    className={inputClass(errors.virtualTourUrl)}
+                    placeholder="https://www.youtube.com/watch?v=…, https://vimeo.com/…, https://player.media.matterport.com/embed/… or a Kuula player link"
+                  />
+                  {errors.virtualTourUrl && (
+                    <p className="mt-1 text-xs text-red-600">{errors.virtualTourUrl.message}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-400">
+                    YouTube, Vimeo, Matterport or Kuula share links. Saved formats are normalized to the provider embed URL.
                   </p>
                 </div>
               </div>

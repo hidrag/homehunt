@@ -117,7 +117,8 @@ URL Rules:
   }
   ```
 - **Guarantees (S3)**:
-  - `images`: Array of URL strings is preserved in exact database order.
+  - `images`: Array of URL strings is preserved in exact database order. (S13: storage normalizes images to objects; public payloads keep the URL-string array contract via server-side flattening — ADR-036.)
+  - `verificationStatus` / `verifiedAt` / `rejectionReason` / `virtualTourUrl` (S13, ADR-036) are present for every listing; `verificationStatus` defaults to `'unverified'`. These fields are server-managed and are never client-writable (ignored on create/update mass-assignment).
   - `location`: Always returned in GeoJSON format `{ type: "Point", coordinates: [longitude, latitude] }`. Consumers needing `[latitude, longitude]` (e.g. Leaflet) must invert coordinates explicitly.
 - **Error Responses**:
   - `400 Bad Request`: `INVALID_ID` if ObjectId is malformed.
@@ -506,6 +507,7 @@ Notification endpoints require authentication (`requireAuth`) for **any role** �
 | `visit_update` — visit confirmed/declined/cancelled | ✅ affected party | — (S8 emails preserved) |
 | `inquiry_update` — new inquiry submitted | ✅ agent | ✅ agent |
 | `message_alert` — new chat message | ✅ recipient | — |
+| `verification_update` — admin approve/reject decision (S13, ADR-036) | ✅ listing owner (agent) | — |
 Notification/email failures never fail the primary mutation (`[NOTIFY_ERROR]`/`[MATCH_ERROR]` logged only). Price-drop alerts: deferred to S14+.
 
 ## Authorization
@@ -609,3 +611,49 @@ All conversation endpoints require authentication (`requireAuth`). Pagination fo
 - **Zero POIs in range:** `dataAvailable: false`, `walkScore: null`, every category array empty — never a 0 score (locked S12 decision 3; ADR-034).
 - Errors: `400 INVALID_ID` (malformed ObjectId), `400 GEO_INVALID` (bad radius), `404 NOT_FOUND` (unknown id).
 - Scoring formula published in ADR-034; weights/constants are a breaking-change surface.
+
+## Media & Verification API (S13, ADR-036)
+
+Access model: every media route requires authentication. The owning agent and admins may access; **any other authenticated caller receives `404 NOT_FOUND` — never 403** (existence itself is access-controlled; enumeration guard per ADR-030). Uploads are `multipart/form-data` with field name `files`. Bytes never sit at an unrestricted public URL; provider ids are opaque to clients.
+
+Upload limits (server-enforced; multer memoryStorage + magic-byte sniffing per ADR-035):
+- Images: JPEG / PNG / WEBP, ≤ 5 MB per file, ≤ 5 files per request, ≤ 20 per property.
+- Documents: PDF / JPEG / PNG / WEBP, ≤ 10 MB per file, ≤ 10 active per property.
+- Declared MIME is cross-checked against sniffed content; mismatch, SVG, executables → `400 INVALID_FILE_TYPE`. Oversize → `413 FILE_TOO_LARGE`. A provider failure means the database was never touched; a post-upload DB failure destroys the orphaned asset best-effort and logs `[UPLOAD_ORPHAN_ERROR]`.
+
+### POST /api/properties/:id/images
+- Auth: agent owner or admin (media access gate).
+- Success `201` → `data.images`: `[{ imageId, url, publicId, alt }]`.
+- Errors: `401`, `400 INVALID_FILE_TYPE`, `400 VALIDATION_ERROR` (empty upload / per-property cap), `404`, `413`.
+
+### GET /api/properties/:id/images
+- Auth: agent owner or admin. Same object shape as above — the ONLY surface exposing normalized image objects (public property payloads keep the URL-string array contract).
+
+### DELETE /api/properties/:id/images/:imageId
+- Auth: agent owner or admin. Removes the entry and best-effort destroys the provider asset. `404` for unknown/mismatched `imageId` or foreign property.
+
+### GET /api/properties/:id/documents
+- Auth: agent owner or admin. `data.documents`: `[{ id, fileName, mimeType, byteSize, kind, uploadedAt }]` (active rows only, newest first).
+
+### POST /api/properties/:id/documents
+- Auth: agent owner or admin (multipart). Success `201` → same shape as GET.
+
+### GET /api/properties/:id/documents/:documentId/content
+- Auth: agent owner or admin. Delivery grant for the bytes: `302` to a short-lived signed provider URL (Cloudinary) or an in-band `200` stream (fake provider) with `Content-Disposition: attachment` and `Cache-Control: no-store`. `404` for removed rows, foreign properties, malformed ids.
+- Client note: because delivery is cookie-authenticated and may redirect, links to content URLs are opened by the browser directly (no `fetch` body caching).
+
+### DELETE /api/properties/:id/documents/:documentId
+- Auth: agent owner or admin. Soft delete (`status: 'removed'`; audit row retained, provider asset destroyed best-effort). Idempotent for callers; second delete → `404`.
+
+### POST /api/properties/:id/request-verification
+- Auth: agent owner or admin. Requires ≥ 1 active document. Allowed from `unverified`, `rejected` or `verified` (a verified listing re-submits → `pending`, clearing `verifiedAt`/`verifiedBy`/`rejectionReason`). From `pending` → `409 INVALID_VERIFICATION_STATE`. Missing documents → `400 VALIDATION_ERROR`.
+
+### GET /api/admin/verifications
+- Auth: admin. Pending queue, oldest request first: `data.verifications`: `[{ ...publicized property, agent: {id,name,email}, documentCount }]` + pagination.
+
+### PATCH /api/admin/properties/:id/verification
+- Auth: admin. Body: `{ decision: 'approve' | 'reject', reason?: string }`. Valid ONLY from `pending` (`409` otherwise); `reject` requires a non-empty reason (≤ 500 chars). Approve sets server-derived `verifiedAt`/`verifiedBy`; reject records `rejectionReason`. Agent receives the in-app `verification_update` notification. Response `data.property` (publicized).
+
+**Mass-assignment guard:** `verificationStatus`, `verifiedAt`, `verifiedBy`, `rejectionReason` are server-managed. The standard create/update sanitizers never pick them up — payloads attempting to set them are silently dropped, not errors (S3 convention for ignored protected fields). `status` remains protected exactly as in S6.
+
+**Virtual tour (ADR-036):** `virtualTourUrl` on create/update is normalized to a canonical embed URL on the approved host whitelist (youtube-nocookie / vimeo player / matterport player / kuula static player). Unrecognized hosts or malformed ids → `400 VALIDATION_ERROR` with the normalization reason. Clients re-validate the stored canonical form against the same whitelist before rendering any iframe.

@@ -9,6 +9,8 @@ import InquiryForm from "../components/ui/InquiryForm";
 import VisitForm from "../components/ui/VisitForm";
 import MessageAgentButton from "../components/ui/MessageAgentButton";
 import NeighborhoodSection from "../components/property/NeighborhoodSection";
+import VerificationBadge from "../components/ui/VerificationBadge";
+import VirtualTour from "../components/ui/VirtualTour";
 
 const ListingDetail = () => {
   const { id } = useParams();
@@ -124,6 +126,7 @@ const ListingDetail = () => {
               >
                 {property.status.replace("_", " ")}
               </span>
+              <VerificationBadge status={property.verificationStatus} />
             </div>
             <h1 className="text-3xl font-bold text-gray-900 sm:text-4xl">
               {property.title}
@@ -220,6 +223,9 @@ const ListingDetail = () => {
               onCategoryChange={handleCategoryChange}
             />
           </div>
+
+          {/* 7b. Virtual tour (S13) — renders only for a whitelisted URL */}
+          <VirtualTour url={property.virtualTourUrl} />
 
           {/* 8. Location Map */}
           <div className="mb-8">

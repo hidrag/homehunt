@@ -14,6 +14,7 @@ This document defines expected configuration names. Actual secrets must never be
 - `CLOUDINARY_CLOUD_NAME`
 - `CLOUDINARY_API_KEY`
 - `CLOUDINARY_API_SECRET`
+- `UPLOAD_PROVIDER` — `fake` (default; in-memory registry for development/tests, ADR-035) or `cloudinary` (signed raw uploads via native `fetch`, no SDK). Configuration errors throw at upload call time, never at boot — the rest of the platform keeps serving with unread media routes.
 
 ## Email
 - `EMAIL_PROVIDER` — `fake` (default; in-memory log for development/tests) or `resend` (Resend HTTP API via native `fetch`, no SDK).

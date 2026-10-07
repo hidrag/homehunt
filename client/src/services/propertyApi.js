@@ -129,6 +129,72 @@ export const propertyApi = {
     const response = await api.delete(`/properties/${id}`);
     return response.data;
   },
+
+  // --- S13 media & verification (ADR-035/ADR-036) ---
+
+  /**
+   * Owner-scoped image list (normalized objects with imageId/publicId)
+   */
+  getImages: async (id) => {
+    const response = await api.get(`/properties/${id}/images`);
+    return response.data;
+  },
+
+  /**
+   * Upload one or more image files (multipart). Server enforces type/size.
+   */
+  uploadImages: async (id, files) => {
+    const form = new FormData();
+    for (const file of files) form.append('files', file);
+    const response = await api.post(`/properties/${id}/images`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  deleteImage: async (id, imageId) => {
+    const response = await api.delete(`/properties/${id}/images/${imageId}`);
+    return response.data;
+  },
+
+  /**
+   * Owner/admin verification document metadata list
+   */
+  getDocuments: async (id) => {
+    const response = await api.get(`/properties/${id}/documents`);
+    return response.data;
+  },
+
+  uploadDocuments: async (id, files) => {
+    const form = new FormData();
+    for (const file of files) form.append('files', file);
+    const response = await api.post(`/properties/${id}/documents`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  deleteDocument: async (id, documentId) => {
+    const response = await api.delete(`/properties/${id}/documents/${documentId}`);
+    return response.data;
+  },
+
+  /**
+   * Authenticated document delivery (owner/admin only; 404 otherwise).
+   * `inline` selects browser display over attachment download.
+   */
+  getDocumentContentUrl: (id, documentId) => {
+    const base = api.defaults.baseURL || '';
+    return `${base}/properties/${id}/documents/${documentId}/content`;
+  },
+
+  /**
+   * Agent submits an owned listing for verification (needs >= 1 document)
+   */
+  requestVerification: async (id) => {
+    const response = await api.post(`/properties/${id}/request-verification`);
+    return response.data;
+  },
 };
 
 export default propertyApi;

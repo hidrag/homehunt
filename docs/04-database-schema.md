@@ -80,7 +80,12 @@ The `Property` model enforces the following core domain fields:
 - `bathrooms` (Number)
 - `area` (Number, square feet)
 - `amenities` (Array of Strings)
-- `images` (Array of Strings: remote URLs; `images[0]` serves as primary thumbnail across cards and previews; all elements are rendered sequentially in `PropertyGallery`)
+- `images` (Array of objects `{ imageId, url, publicId, alt }` since S13 — storage is normalized by a schema setter that also accepts legacy URL strings; `images[0]` serves as primary thumbnail across cards and previews; all elements are rendered sequentially in `PropertyGallery`. Public API payloads continue to return a plain URL string array in order — flattening happens in `lib/propertyPresentation.js`) **— S13 (ADR-036)**
+- `verificationStatus` (String, enum `['unverified', 'pending', 'verified', 'rejected']`, default `'unverified'`) — server-managed; never client-writable via create/update pick-lists **— S13 (ADR-036)**
+- `verifiedAt` (Date, nullable) — set server-side on approve, cleared on reject/resubmit **— S13**
+- `verifiedBy` (ObjectId, ref `'User'`, nullable) — deciding admin, server-derived **— S13**
+- `rejectionReason` (String, trimmed, max 500, nullable) — required input on reject, cleared otherwise **— S13**
+- `virtualTourUrl` (String, trimmed, max 500, nullable) — canonicalized embed URL whitelisted to youtube-nocookie / vimeo player / matterport player / kuula static player (normalized server-side; `lib/virtualTour.js`) **— S13 (ADR-036)**
 
 **Timestamps:**
 - `createdAt`, `updatedAt` (Mongoose timestamps)
@@ -267,7 +272,7 @@ Collection: `notifications`
 **Fields:**
 - `_id` (ObjectId)
 - `recipient` (ObjectId, ref `'User'`, required) — always server-derived from persisted event participants (ADR-030); never request input
-- `type` (String, enum `['listing_match','visit_update','message_alert','inquiry_update']`)
+- `type` (String, enum `['listing_match','visit_update','message_alert','inquiry_update','verification_update']`) — `verification_update` added in S13 (ADR-036; extends the locked ADR-030 matrix with user approval)
 - `title` (String, required, max 140) — server-authored template text
 - `body` (String, required, max 500) — server-authored template text (escaped values interpolated)
 - `resourceRef` (Object) — `{ kind: String enum ['property','visit','conversation','inquiry'], id: ObjectId }`; referenced entities are **never cascade-deleted** — a deleted target renders "no longer available" (ADR-025 pattern)
@@ -298,3 +303,27 @@ Collection: `pois`
 - `location` (`2dsphere`) — the single POI query served is the neighborhood radius sweep: `$geoWithin $centerSphere` around the property's coordinates (ADR-031 operator, IXSCAN-verified). Category grouping and top-10 slicing happen in memory over the radius-capped candidate set; deliberately no compound category index.
 
 **Sourcing:** deterministically seeded via `server/scripts/seed/pois.js` (invoked after properties insert; pure offset-ring generator → byte-deterministic; production-refused). Seeded Goa listings are intentionally POI-free within the 10 km max radius (rural fixture). No runtime external POI dependency (locked S12 decision 1; ADR-033).
+
+## Property Document Schema (S13)
+
+Collection: `propertydocuments`
+
+Verification evidence files (deeds, licenses, tax receipts). Bytes live with the upload provider (Cloudinary private asset or the fake in-memory registry) — never in Mongo and never at a public URL; delivery is exclusively through the authenticated content route (ADR-036).
+
+**Fields (ADR-036):**
+- `_id` (ObjectId)
+- `property` (ObjectId, ref `'Property'`, required)
+- `uploadedBy` (ObjectId, ref `'User'`, required) — server-derived uploader identity
+- `fileName` (String, required, trimmed, max 200 — path separators stripped server-side)
+- `mimeType` (String, required, enum `['image/jpeg', 'image/png', 'image/webp', 'application/pdf']`) — **server-derived from magic-byte sniffing at upload time; the client-declared MIME is only cross-checked, never trusted**
+- `byteSize` (Number, required, ≥ 0) — from the buffered bytes
+- `kind` (String, enum `['verification']`, default `'verification'`)
+- `status` (String, enum `['active', 'removed']`, default `'active'`) — soft removal keeps the audit trail
+- `providerId` (String, required, max 300) — provider-generated public id (private access mode when Cloudinary); opaque to clients
+- `provider` (String, enum `['cloudinary', 'fake']`, required)
+- `createdAt`, `updatedAt` (Mongoose timestamps)
+
+**Indexes:**
+- `{ property: 1, createdAt: -1 }` — per-listing document view, newest first. The admin verification queue drives off `Property.verificationStatus`, so no additional index exists.
+
+**Privacy (locked S13 decision):** unlike public property images, document metadata and bytes are visible ONLY to the owning agent and admins; every other authenticated caller receives 404 NOT_FOUND (never 403 — existence itself is access-controlled).

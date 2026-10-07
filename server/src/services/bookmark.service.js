@@ -1,5 +1,6 @@
 import Bookmark from '../models/Bookmark.js';
 import Property from '../models/Property.js';
+import { publicizeProperty } from '../lib/propertyPresentation.js';
 
 const PROPERTY_SUMMARY_PROJECTION = {
   title: 1,
@@ -36,7 +37,11 @@ export const listForUser = async (userId, page = 1, limit = 10) => {
   ]);
 
   return {
-    bookmarks,
+    // S13 (ADR-036): populated property summaries keep URL-string images.
+    bookmarks: bookmarks.map((bookmark) => ({
+      ...bookmark,
+      property: publicizeProperty(bookmark.property),
+    })),
     pagination: {
       total,
       page,

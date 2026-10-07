@@ -121,6 +121,21 @@ export const notifyMessageAlert = async (conversation, senderId, body) => guarde
 });
 
 /**
+ * `verification_update` — in-app only (S13, ADR-036; extends the locked
+ * ADR-030 matrix with user approval). Recipient is the listing's agent,
+ * server-derived from the Property document (never request input).
+ */
+export const notifyVerificationUpdate = async (property, decision, reason) => guarded('verification_update', async () => {
+  const agent = idOf(property.agent);
+  if (!agent) return;
+  const title = decision === 'approve' ? 'Listing verified' : 'Verification rejected';
+  const body = decision === 'approve'
+    ? `${truncate(property.title, 120)} has been verified. Your listing now shows the Verified badge.`
+    : `${truncate(property.title, 120)} was rejected: ${truncate(reason || 'No reason provided', 300)}`;
+  await insert({ recipient: agent, type: 'verification_update', title, body, resourceRef: { kind: 'property', id: property._id } });
+});
+
+/**
  * Inbox operations — every query is recipient-scoped; misses are 404
  * (enumeration guard, ADR-030).
  */

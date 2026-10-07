@@ -19,17 +19,17 @@ Two-week sprints are the default planning unit. Duration is a planning framework
 | S9 | Real-time Chat | [~] In progress — implementation complete; automated verification green (341 tests); not declared complete pending human QA |
 | S10 | Saved Searches & Notification Engine | [x] Complete (Ready for human QA) |
 | S11 | Advanced Geo Search | [x] Complete |
-| S12 | Neighborhood Explorer | [~] In progress — implementation complete; automated verification green (470 tests); not declared complete pending human QA |
-| S13 | Documents, Verification & Virtual Tours | [ ] Planned |
+| S12 | Neighborhood Explorer | [x] Complete |
+| S13 | Documents, Verification & Virtual Tours | [~] In progress — implementation complete; automated verification green (519 tests); not declared complete pending human QA |
 | S14 | Mortgage, Comparison & Analytics | [ ] Planned |
 | S15 | PWA, Offline & Push | [ ] Planned |
 | S16 | Testing, Security, Performance & Deployment | [ ] Planned |
 | S17 | Recommendation Engine — Post-v1 | [ ] Planned |
 
 ## Status
-Current sprint: S12 — Neighborhood Explorer (implementation complete; pending human QA).
-Next sprint: S13 — Documents, Verification & Virtual Tours.
-S4 (Authentication & RBAC), S5 (Buyer Features), S6 (Agent System), S7 (Admin Platform), S8 (Visit Scheduling), S9 (Real-time Chat), S10 (Saved Searches & Notifications), and S11 (Advanced Geo Search) are complete.
+Current sprint: S13 — Documents, Verification & Virtual Tours (implementation complete; pending human QA).
+Next sprint: S14 — Mortgage, Comparison & Analytics.
+S4 (Authentication & RBAC), S5 (Buyer Features), S6 (Agent System), S7 (Admin Platform), S8 (Visit Scheduling), S9 (Real-time Chat), S10 (Saved Searches & Notifications), S11 (Advanced Geo Search), and S12 (Neighborhood Explorer) are complete.
 
 Legend:
 - `[ ]` Planned

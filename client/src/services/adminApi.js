@@ -92,6 +92,22 @@ const adminApi = {
     const response = await api.get(`/admin/conversations/${id}/messages`, { params });
     return response.data;
   },
+
+  /**
+   * Pending property verification queue (S13, ADR-036)
+   */
+  getVerifications: async (params = {}) => {
+    const response = await api.get('/admin/verifications', { params });
+    return response.data;
+  },
+
+  /**
+   * Approve or reject a pending verification (reason required on reject)
+   */
+  decideVerification: async (id, payload) => {
+    const response = await api.patch(`/admin/properties/${id}/verification`, payload);
+    return response.data;
+  },
 };
 
 export default adminApi;

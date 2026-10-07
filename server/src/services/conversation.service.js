@@ -4,6 +4,7 @@ import Message from '../models/Message.js';
 import Property from '../models/Property.js';
 import { emitToConversation } from '../sockets/registry.js';
 import { notifyMessageAlert } from './notification.service.js';
+import { publicizeProperty } from '../lib/propertyPresentation.js';
 
 const fail = (status, code, message) => { throw { status, code, message }; };
 const safe = (doc) => (doc?.toObject ? doc.toObject() : doc);
@@ -85,7 +86,8 @@ export const listConversations = async (userId, role, page = 1, limit = 10) => {
       .lean(),
     Conversation.countDocuments(filter),
   ]);
-  return { conversations, pagination: { total, page, pages: Math.ceil(total / limit), limit } };
+  // S13 (ADR-036): populated property summaries keep URL-string images.
+  return { conversations: conversations.map((c) => ({ ...c, property: publicizeProperty(c.property) })), pagination: { total, page, pages: Math.ceil(total / limit), limit } };
 };
 
 /** Paginated message history (newest first) for a participant. */
@@ -196,7 +198,8 @@ export const adminListConversations = async (page = 1, limit = 10) => {
       .lean(),
     Conversation.countDocuments({}),
   ]);
-  return { conversations, pagination: { total, page, pages: Math.ceil(total / limit), limit } };
+  // S13 (ADR-036): populated property summaries keep URL-string images.
+  return { conversations: conversations.map((c) => ({ ...c, property: publicizeProperty(c.property) })), pagination: { total, page, pages: Math.ceil(total / limit), limit } };
 };
 
 /** Admin-only message history for any conversation (read-only audit). */

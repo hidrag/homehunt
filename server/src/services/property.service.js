@@ -1,6 +1,8 @@
 import Bookmark from '../models/Bookmark.js';
 import Property from '../models/Property.js';
 import { matchSavedSearches } from './matching.service.js';
+import { publicizeProperty, publicizeProperties } from '../lib/propertyPresentation.js';
+import { normalizeTourUrl } from '../lib/virtualTour.js';
 
 const PROPERTY_TYPES = ['apartment', 'house', 'villa', 'condo', 'land'];
 const LISTING_TYPES = ['sale', 'rent'];
@@ -153,11 +155,14 @@ const sanitizeAmenities = (amenities) => {
 };
 
 /**
- * Validates an images array of remote http(s) URLs
+ * S13 (ADR-036): dual-shape images. Legacy URL strings keep working
+ * byte-identically (S3 contract preserved — this returns the strings the
+ * model setter will normalize); upload objects { url, publicId, alt } pass
+ * through with trimmed url checked against the remote-URL guard.
  */
 const sanitizeImages = (images) => {
   if (!Array.isArray(images)) {
-    throwValidationError('Images must be an array of remote URL strings');
+    throwValidationError('Images must be an array');
   }
   if (images.length > MAX_IMAGES) {
     throwValidationError(`Images cannot exceed ${MAX_IMAGES} entries`);
@@ -165,17 +170,46 @@ const sanitizeImages = (images) => {
 
   const sanitized = [];
   for (const item of images) {
-    if (typeof item !== 'string') {
-      throwValidationError('Images must be an array of remote URL strings');
+    if (typeof item === 'string') {
+      const trimmed = item.trim();
+      if (!trimmed) continue;
+      if (trimmed.length > MAX_LENGTHS.imageUrl || !IMAGE_URL_PATTERN.test(trimmed)) {
+        throwValidationError('Each image must be a valid http(s) URL');
+      }
+      sanitized.push(trimmed);
+      continue;
     }
-    const trimmed = item.trim();
-    if (!trimmed) continue;
-    if (trimmed.length > MAX_LENGTHS.imageUrl || !IMAGE_URL_PATTERN.test(trimmed)) {
-      throwValidationError('Each image must be a valid http(s) URL');
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      const url = typeof item.url === 'string' ? item.url.trim() : '';
+      if (!url || url.length > MAX_LENGTHS.imageUrl || !IMAGE_URL_PATTERN.test(url)) {
+        throwValidationError('Each image must carry a valid http(s) URL');
+      }
+      const entry = { url };
+      if (typeof item.publicId === 'string' && item.publicId.trim()) {
+        entry.publicId = item.publicId.trim().slice(0, 300);
+      }
+      if (typeof item.alt === 'string' && item.alt.trim()) {
+        entry.alt = item.alt.trim().slice(0, 200);
+      }
+      sanitized.push(entry);
+      continue;
     }
-    sanitized.push(trimmed);
+    throwValidationError('Each image must be a URL string or an image object');
   }
   return sanitized;
+};
+
+/**
+ * S13: virtualTourUrl — server-normalized to a whitelisted canonical embed
+ * form (ADR-036). null/'' clears the field.
+ */
+const sanitizeTourUrl = (value) => {
+  if (value === null || value === '') return null;
+  const result = normalizeTourUrl(value);
+  if (!result.ok) {
+    throwValidationError(`Virtual tour URL: ${result.reason}`);
+  }
+  return result.url;
 };
 
 /**
@@ -211,6 +245,11 @@ const validateCreateInput = (input) => {
   if (input.images !== undefined && input.images !== null) {
     sanitized.images = sanitizeImages(input.images);
   }
+  if (input.virtualTourUrl !== undefined && input.virtualTourUrl !== null) {
+    sanitized.virtualTourUrl = sanitizeTourUrl(input.virtualTourUrl);
+  }
+  // verificationStatus/verifiedAt/verifiedBy/rejectionReason are NOT
+  // accepted here on purpose (server-managed only, ADR-036).
 
   return sanitized;
 };
@@ -220,7 +259,8 @@ const validateCreateInput = (input) => {
  * @param {Object} input
  * @returns {Object}
  * @note Status is server-derived only; clients cannot update it directly
- *       Changes must go through proper sale/rental workflow
+ *       Changes must go through proper sale/rental workflow.
+ *       S13: verification fields are likewise server-managed (ADR-036).
  */
 const validateUpdateInput = (input) => {
   assertPayload(input);
@@ -244,6 +284,11 @@ const validateUpdateInput = (input) => {
   if (has('area')) sanitized.area = sanitizeNonNegativeNumber(input.area, 'Area');
   if (has('amenities')) sanitized.amenities = sanitizeAmenities(input.amenities);
   if (has('images')) sanitized.images = sanitizeImages(input.images);
+  // Explicit presence (even null/'') means "set/clear the tour" — hasOwnProperty
+  // rather than has(): a null or '' payload value clears the field per docs/05.
+  if (Object.prototype.hasOwnProperty.call(input, 'virtualTourUrl')) {
+    sanitized.virtualTourUrl = sanitizeTourUrl(input.virtualTourUrl);
+  }
 
   if (Object.keys(sanitized).length === 0) {
     throwValidationError('No valid fields to update');
@@ -286,7 +331,7 @@ class PropertyService {
     ]);
 
     return {
-      properties,
+      properties: publicizeProperties(properties),
       pagination: {
         total,
         page,
@@ -302,7 +347,8 @@ class PropertyService {
    * @returns {Promise<Object|null>}
    */
   async getPropertyById(id) {
-    return Property.findById(id).select("-__v").lean();
+    const property = await Property.findById(id).select("-__v").lean();
+    return publicizeProperty(property);
   }
 
   /**
@@ -315,7 +361,7 @@ class PropertyService {
   async createProperty(agentId, input) {
     const sanitized = validateCreateInput(input);
     const property = await Property.create({ ...sanitized, agent: agentId });
-    const doc = property.toObject({ versionKey: false });
+    const doc = publicizeProperty(property.toObject({ versionKey: false }));
     // S10 (ADR-029, locked decision 3): inline fire-and-forget saved-search
     // sweep. Never delays or fails the creation response; all errors are
     // swallowed internally with [MATCH_ERROR] logging.
@@ -345,7 +391,9 @@ class PropertyService {
     ]);
 
     return {
-      properties,
+      // Owner view keeps object images out too for UI consistency; the
+      // dedicated owner image endpoint serves the object form.
+      properties: publicizeProperties(properties),
       pagination: {
         total,
         page,
@@ -356,7 +404,7 @@ class PropertyService {
   }
 
   /**
-   * Update a property document (ownership already verified by middleware)
+   * Update a property document (ownership verified by middleware)
    * @param {Object} property - Mongoose document (req.resource)
    * @param {Object} input
    * @returns {Promise<Object>}
@@ -365,7 +413,7 @@ class PropertyService {
     const sanitized = validateUpdateInput(input);
     property.set(sanitized);
     await property.save();
-    return property.toObject({ versionKey: false });
+    return publicizeProperty(property.toObject({ versionKey: false }));
   }
 
   /**

@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import Inquiry from '../models/Inquiry.js';
 import Property from '../models/Property.js';
 import { notifyInquiryUpdate } from './notification.service.js';
+import { publicizeProperty } from '../lib/propertyPresentation.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -124,7 +125,11 @@ export const listForBuyer = async (buyerId, page = 1, limit = 10) => {
   ]);
 
   return {
-    inquiries,
+    // S13 (ADR-036): populated property summaries keep URL-string images.
+    inquiries: inquiries.map((inquiry) => ({
+      ...inquiry,
+      property: publicizeProperty(inquiry.property),
+    })),
     pagination: {
       total,
       page,
@@ -165,7 +170,11 @@ export const listForAgent = async (agentId, page = 1, limit = 10) => {
   ]);
 
   return {
-    inquiries,
+    // S13 (ADR-036): populated property summaries keep URL-string images.
+    inquiries: inquiries.map((inquiry) => ({
+      ...inquiry,
+      property: publicizeProperty(inquiry.property),
+    })),
     pagination: {
       total,
       page,

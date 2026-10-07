@@ -2,6 +2,7 @@ import React from 'react';
 import { MapPin, Bed, Bath, Square } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import BookmarkButton from "./BookmarkButton";
+import VerificationBadge from "./VerificationBadge";
 
 const PropertyCard = ({ property }) => {
   const [imageError, setImageError] = React.useState(false);
@@ -33,6 +34,11 @@ const PropertyCard = ({ property }) => {
           <div className="absolute top-4 left-4 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold tracking-wider text-gray-900 shadow-sm backdrop-blur-sm uppercase">
             {property.listingType}
           </div>
+          {property.verificationStatus === 'verified' && (
+            <div className="absolute bottom-4 left-4">
+              <VerificationBadge status="verified" />
+            </div>
+          )}
           <div className="absolute top-4 right-4 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold tracking-wider text-white backdrop-blur-sm uppercase">
             {property.status.replace("_", " ")}
           </div>

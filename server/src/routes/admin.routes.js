@@ -3,6 +3,8 @@ import * as adminController from '../controllers/admin.controller.js';
 import { requireAuth, requireRole } from '../middlewares/auth.middleware.js';
 import { requireOwnership } from '../middlewares/ownership.middleware.js';
 import Inquiry from '../models/Inquiry.js';
+import Property from '../models/Property.js';
+import * as mediaController from '../controllers/media.controller.js';
 import * as visitController from '../controllers/visit.controller.js';
 import * as conversationController from '../controllers/conversation.controller.js';
 
@@ -29,6 +31,16 @@ router.patch('/users/:id/role', adminController.changeUserRole);
 // Cross-listing moderation (read-only; mutations reuse the S6
 // PATCH/DELETE /api/properties/:id admin-override routes)
 router.get('/properties', adminController.listProperties);
+
+// S13 — Property verification moderation queue (ADR-036). The decision
+// route loads the property via requireOwnership with admin override and
+// the service enforces the pending-only state machine.
+router.get('/verifications', mediaController.listVerifications);
+router.patch(
+  '/properties/:id/verification',
+  requireOwnership(Property, 'agent', { allowAdmin: true, notFoundMessage: 'Property not found' }),
+  mediaController.decideVerification,
+);
 
 // Cross-agent inquiry administration (explicit admin route; the S6 agent
 // inbox route remains strictly agent-scoped and unchanged)

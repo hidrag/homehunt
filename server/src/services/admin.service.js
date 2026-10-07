@@ -4,6 +4,7 @@ import Property from '../models/Property.js';
 import Inquiry from '../models/Inquiry.js';
 import { hashPassword, isValidPasswordLength } from '../utils/password.js';
 import { AUTH_CONSTANTS } from '../config/auth.js';
+import { publicizeProperty } from '../lib/propertyPresentation.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -323,7 +324,7 @@ export const listProperties = async ({
 
   return {
     properties: properties.map((property) => ({
-      ...property,
+      ...publicizeProperty(property),
       agent: property.agent
         ? {
             id: property.agent._id.toString(),

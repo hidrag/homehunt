@@ -1,10 +1,51 @@
 # HomeHunt — Current Sprint
 
 ## Sprint
+S13 — Documents, Verification & Virtual Tours
+
+## Status
+[~] In progress — implementation complete; automated verification green (519 tests, 30 suites); not declared complete pending human QA.
+
+## S13 Locked Decisions (user-approved 2026-10-07)
+1. Storage: dedicated `propertydocuments` collection (metadata only; bytes with the provider). Property gains `verificationStatus`/`verifiedAt`/`verifiedBy`/`rejectionReason`/`virtualTourUrl`; verification fields server-managed only (mass-assignment rejected). Dual-shape `images` normalization (legacy URL strings accepted; stored `{ imageId, url, publicId, alt }`; public payloads keep the ordered URL-string array).
+2. Uploads: `UploadService` adapter → `FakeUploadProvider` (default/test) | `CloudinaryProvider` (native fetch, no SDK). multer memoryStorage; magic-byte validation (JPEG/PNG/WebP/PDF; SVG/executables rejected; declared MIME must agree with sniff). Limits: images 5 MB/file, 5/req, 20/property; documents 10 MB/file, 10 active/property. Oversize 413 FILE_TOO_LARGE; bad type 400 INVALID_FILE_TYPE.
+3. Workflow: agent uploads docs → `POST /api/properties/:id/request-verification` (requires ≥1 active doc; from unverified/rejected/verified; pending → 409). Admin decides: `PATCH /api/admin/properties/:id/verification` { decision: approve|reject, reason? } from pending only; reject requires reason. Verified re-submit resets to pending (audit fields cleared). In-app `verification_update` notification on every decision.
+4. Access: media routes auth-required; non-owner/non-admin → 404 NOT_FOUND (never 403). Document content via authenticated route only (302 signed URL or in-band stream; `Cache-Control: no-store`). No public document URLs.
+5. Virtual tours: server-normalized to canonical embed URLs (youtube-nocookie / vimeo player / matterport player / kuula static player); client re-checks whitelist before iframe render (sandboxed).
+6. Governance: S12 flipped to [x] Complete in roadmap + sprint doc.
+
+## Planned deliverables
+- PropertyDocument model + Property schema additions + dual-shape images + presentation flattening lib
+- Upload provider adapters (fake/cloudinary) + magic-byte + virtualTour libs + multer wiring
+- Media service/controller/routes (property + admin) + requireMediaAccess middleware + verification_update notification
+- ADR-035/036 + docs (04/05/06/07/11/12/02)
+- Tests: uploadSafety.unit (11) + uploads.mongo (25) + uploads.api (12); baseline preserved
+
+## S13 Explicitly out of scope
+- Cloudinary credentials in CI/tests (fake provider only; real-mode verification is human QA scope)
+- Video hosting/transcoding, document format conversion, OCR, virus scanning (S16 infra), image CDN transforms, drag-and-drop galleries, bulk ZIP import.
+
+## S13 status
+Verification green: 519 tests / 30 suites (`--runInBand`, Node v24.20.0), server lint clean, client lint clean, client build clean, `git diff --check` clean. Not declared complete pending human QA.
+
+## S13 manual QA checklist (human)
+- Dev DB reseed → new listings show no verification badge (unverified default).
+- Agent dashboard → My Listings → expand a listing → Verification documents panel: upload a PDF deed (and an image), list shows it; "Request verification" enabled only after ≥1 doc; status pill flips to "Verification pending".
+- Upload an .svg or rename an .exe to .jpg → upload rejected with the type error; upload a >10 MB PDF → size error. 11th document rejected.
+- Listing edit (agent): upload photos in "Verified photo uploads" — thumbnails appear; remove one — disappears from public gallery after reload. Enter a YouTube watch URL as virtual tour → after save, ListingDetail renders the embedded 360/tour card (canonical nocookie embed) below the neighborhood section. Enter `https://evil.example/x` → rejected with the whitelist message.
+- Admin → Verifications tab: the pending listing appears with document count; View documents opens the private list (content opens in new tab, attachment); Approve → listing shows the emerald "Verified" pill on the listing page, listing cards, and agent list; the agent's notification bell shows "Listing verified".
+- Reject with an empty reason → blocked by the modal; with a reason → agent notification carries the reason; agent can re-submit documents and re-request.
+- IDOR (curl/browser): buyer or a second agent hitting the first listing's `.../documents` or content route → 404. Unauthenticated → 401.
+- Regression: listing create/edit via URL textarea still works (legacy string images); public listings/detail/buyers see no document surfaces; notifications page shows the new type with its label.
+
+## S12 delivery record (complete)
+S12 — Neighborhood Explorer is complete: POI collection + deterministic seed, `$geoWithin $centerSphere` sweep, deterministic walk score, `GET /api/properties/:id/neighborhood`, NeighborhoodSection + PropertyMap POI layers, committed (d5a48f9). Verification at sign-off: 470 tests / 27 suites green.
+
+## Sprint
 S12 — Neighborhood Explorer & Local Context
 
 ## Status
-[~] In progress — implementation complete; automated verification green (470 tests, 27 suites); not declared complete pending human QA.
+[x] Complete — committed and pushed (d5a48f9). Verification at sign-off: 470 tests, 27 suites; server lint clean, client lint clean, client build clean.
 
 ## S12 Locked Decisions (user-approved 2026-10-07)
 1. Data: internal `pois` collection (2dsphere), deterministically seeded via `server/scripts/seed/pois.js` (~190 POIs across the 13 seeded cities; seeded Goa listings intentionally POI-free). Zero runtime external POI/network dependency (ADR-033).

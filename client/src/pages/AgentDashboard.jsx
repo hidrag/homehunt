@@ -19,6 +19,8 @@ import {
 import propertyApi from '../services/propertyApi';
 import inquiryApi from '../services/inquiryApi';
 import StatusBadge from '../components/ui/StatusBadge';
+import VerificationBadge from '../components/ui/VerificationBadge';
+import ListingVerificationPanel from '../components/property/ListingVerificationPanel';
 import visitApi from '../services/visitApi';
 import conversationApi from '../services/conversationApi';
 
@@ -411,7 +413,10 @@ const AgentDashboard = () => {
                             </span>
                           </p>
                         </div>
-                        <StatusBadge status={listing.status} />
+                        <div className="flex flex-wrap items-center gap-2">
+                          <StatusBadge status={listing.status} />
+                          <VerificationBadge status={listing.verificationStatus} />
+                        </div>
                       </div>
 
                       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -453,6 +458,14 @@ const AgentDashboard = () => {
                           </button>
                         )}
                       </div>
+
+                      {/* S13 — verification documents & request action */}
+                      <ListingVerificationPanel
+                        propertyId={listing._id}
+                        status={listing.verificationStatus}
+                        rejectionReason={listing.rejectionReason}
+                        onChanged={() => setListingsRetry((count) => count + 1)}
+                      />
                     </div>
                   </div>
                 </div>

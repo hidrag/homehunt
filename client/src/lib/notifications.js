@@ -26,4 +26,5 @@ export const TYPE_LABELS = {
   visit_update: 'Visit',
   message_alert: 'Message',
   inquiry_update: 'Inquiry',
+  verification_update: 'Verification',
 };

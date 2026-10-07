@@ -77,6 +77,13 @@ Validate:
 ## Documents
 Legal/property documents are sensitive. Do not expose unrestricted public URLs.
 
+## Media & verification uploads (S13, ADR-035/ADR-036)
+- Content is authoritative only from magic-byte sniffing (`lib/fileSignatures.js`): JPEG/PNG/WebP/PDF whitelisted; SVG (script-carrying markup) and executables rejected; a declared MIME that disagrees with the sniffed type is rejected.
+- Hard bounds before any provider call: multer memoryStorage, per-file bytes (images 5 MB, documents 10 MB), per-request file counts, per-property totals — oversized uploads never reach disk or the provider.
+- Document bytes are private: storage with the provider in private access mode, delivery only through the authenticated, ownership-scoped content route (`Cache-Control: no-store`, short-lived signed URLs or in-band stream). Non-owners receive 404, never 403 — document existence is itself access-controlled.
+- Verification state (`verificationStatus`/`verifiedAt`/`verifiedBy`/`rejectionReason`) is server-managed; the standard create/update sanitizers never pick these fields up. Client payloads cannot self-verify.
+- Virtual tour URLs are canonicalized server-side to a fixed four-provider embed host whitelist (URL-parsed first, exact-host match — suffix spoofing and `javascript:`/`data:` die on protocol/host checks) and re-validated client-side before any iframe render, with a restrictive `sandbox`.
+
 ## Web security
 Use appropriate:
 - CORS configuration
