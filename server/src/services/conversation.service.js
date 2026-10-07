@@ -3,6 +3,7 @@ import Conversation from '../models/Conversation.js';
 import Message from '../models/Message.js';
 import Property from '../models/Property.js';
 import { emitToConversation } from '../sockets/registry.js';
+import { notifyMessageAlert } from './notification.service.js';
 
 const fail = (status, code, message) => { throw { status, code, message }; };
 const safe = (doc) => (doc?.toObject ? doc.toObject() : doc);
@@ -62,6 +63,7 @@ export const openConversation = async (buyerId, input = {}) => {
 
   const payload = await Message.findById(message._id).populate('sender', USER_SUMMARY).lean();
   emitToConversation(conversation._id, 'message:new', payload);
+  void notifyMessageAlert(conversation, buyerId, trimmed);
 
   return { conversation: safe(conversation), message: payload, created };
 };
@@ -129,6 +131,7 @@ export const sendMessage = async (id, userId, input = {}) => {
 
   const payload = await Message.findById(message._id).populate('sender', USER_SUMMARY).lean();
   emitToConversation(conversation._id, 'message:new', payload);
+  void notifyMessageAlert(conversation, userId, trimmed);
 
   return { conversation: safe(updated), message: payload };
 };

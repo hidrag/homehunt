@@ -3,6 +3,7 @@ import Visit from '../models/Visit.js';
 import Property from '../models/Property.js';
 import User from '../models/User.js';
 import { sendEmail } from './email.service.js';
+import { notifyVisitUpdate } from './notification.service.js';
 
 const DEFAULT_TIMEZONE = 'Asia/Kolkata';
 const tails = new Map();
@@ -48,6 +49,6 @@ export const transition = async (id, actorId, role, nextStatus) => {
     // there is deliberately no admin transition bypass.
     if (!transitions[visit.status].includes(nextStatus)) fail(409, 'INVALID_STATUS_TRANSITION', 'Invalid status transition');
     visit.status = nextStatus; if (nextStatus === 'cancelled') { visit.cancelledAt = new Date(); visit.cancelledBy = actorId; } await visit.save();
-    const event = nextStatus === 'cancelled' ? (role === 'buyer' ? 'buyer_cancelled' : role === 'agent' ? 'agent_cancelled' : null) : nextStatus; const recipients = event === 'requested' ? [visit.buyer.email, visit.agent.email] : event === 'confirmed' || event === 'declined' || event === 'agent_cancelled' ? [visit.buyer.email] : event === 'buyer_cancelled' ? [visit.agent.email] : []; if (event) await notify(event, visit, recipients); return safe(visit);
+    const event = nextStatus === 'cancelled' ? (role === 'buyer' ? 'buyer_cancelled' : role === 'agent' ? 'agent_cancelled' : null) : nextStatus; const recipients = event === 'requested' ? [visit.buyer.email, visit.agent.email] : event === 'confirmed' || event === 'declined' || event === 'agent_cancelled' ? [visit.buyer.email] : event === 'buyer_cancelled' ? [visit.agent.email] : []; if (event) await notify(event, visit, recipients); void notifyVisitUpdate(visit, nextStatus, role); return safe(visit);
   } finally { release(); if (tails.get(key) === current) tails.delete(key); }
 };

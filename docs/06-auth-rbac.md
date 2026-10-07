@@ -33,6 +33,8 @@ Both must be enforced server-side.
 | Edit any property | No | No | Yes |
 | Manage own inquiries | No | Yes | Yes |
 | Chat with counterpart (S9) | Yes (own threads) | Yes (own threads) | No — read-only audit |
+| Saved searches (S10) | Yes (own, max 20 active) | No | No |
+| Own notification inbox (S10) | Yes | Yes | Yes (own only — no cross-user view) |
 | Manage users | No | No | Yes |
 | Moderate listings | No | No | Yes |
 | Verify properties | No | No | Yes |

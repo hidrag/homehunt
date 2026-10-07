@@ -9,6 +9,8 @@ import inquiryRoutes from "./routes/inquiry.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import visitRoutes from './routes/visit.routes.js';
 import conversationRoutes from './routes/conversation.routes.js';
+import savedSearchRoutes from './routes/savedSearch.routes.js';
+import notificationRoutes from './routes/notification.routes.js';
 
 const app = express();
 
@@ -37,6 +39,8 @@ app.use("/api/inquiries", inquiryRoutes);
 app.use("/api/admin", adminRoutes);
 app.use('/api/visits', visitRoutes);
 app.use('/api/conversations', conversationRoutes);
+app.use('/api/saved-searches', savedSearchRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health Check API
 app.get('/api/health', (req, res) => {

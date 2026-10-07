@@ -15,6 +15,12 @@ import Conversation from '../models/Conversation.js';
  */
 export const registerChatHandlers = (io) => {
   io.on('connection', (socket) => {
+    // S10 (ADR-030): authenticated sockets auto-join their own user room.
+    // Identity comes from the verified handshake token — no client-supplied
+    // room name exists for this channel, so there is no join-authorization
+    // surface (unlike conversation:join, which re-checks the database).
+    socket.join(`user:${socket.user.id}`);
+
     socket.on('conversation:join', async (conversationId, ack) => {
       const reply = typeof ack === 'function' ? ack : () => {};
       try {

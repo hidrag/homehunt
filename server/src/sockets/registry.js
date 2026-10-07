@@ -24,3 +24,14 @@ export const emitToConversation = (conversationId, event, payload) => {
   if (!io) return;
   io.to(`conversation:${conversationId}`).emit(event, payload);
 };
+
+/**
+ * Emit an event to a user's personal room (S10, ADR-030). Every
+ * authenticated socket auto-joins `user:${id}` on connection — the room
+ * name is derived from the verified handshake token, never from client
+ * input. No-op without a socket server (REST-only test contexts).
+ */
+export const emitToUser = (userId, event, payload) => {
+  if (!io) return;
+  io.to(`user:${userId}`).emit(event, payload);
+};

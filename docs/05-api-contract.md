@@ -448,6 +448,63 @@ All visit endpoints require authentication (`requireAuth`). Role gates are enfor
 ### Visit email events (S8)
 Transactional email is best-effort (ADR-024): `requested` → buyer + agent; `confirmed` → buyer; `declined` → buyer; `buyer_cancelled` → agent; `agent_cancelled` → buyer; `completed` → none; admin cancellation → none. Recipients are always derived from persisted user documents; provider failures never fail the DB mutation and are never returned to the client.
 
+### Socket.io endpoints/outbound
+- `notification:new` to room `user:${recipientId}` — delivered after the Notification document persists (ADR-030). Every authenticated socket auto-joins its own user room on connection; clients emit nothing for notifications.
+
+## Saved Search API (S10)
+
+All saved-search endpoints require authentication and are **buyer-only** (`requireAuth` + `requireRole('buyer')`; agents/admins receive `403 FORBIDDEN`). `user` is always `req.user.id`; every `:id` route is owner-scoped and returns `404 NOT_FOUND` for non-owners (enumeration guard). Criteria keys are whitelisted and type-validated at save; the Mongo filter is rebuilt at every execution (ADR-029).
+
+### POST /api/saved-searches
+- Body: `{ "name": "<1–80 chars>", "criteria": { "search"?, "city"?, "propertyType"?, "listingType"?, "minPrice"?, "maxPrice"?, "bedrooms"?, "sort"? }, "frequency"?: "instant" }`.
+- Validation: `name` required, trimmed, ≤80; criteria values validated against the public-listing whitelist/ranges (unknown keys ignored; inverted price range rejected `400`); `frequency` only `instant` — `daily` → `400 VALIDATION_ERROR` ("Daily digest is not supported in this version").
+- Cap: max **20 active** saved searches per user → `429 SEARCH_LIMIT`.
+- Success `201`: `{ "success": true, "data": { "savedSearch": { ...SavedSearch } } }`.
+
+### GET /api/saved-searches
+- Owner's searches, newest activity first (`updatedAt DESC`), standard pagination envelope `{ "savedSearches": [...], "pagination": { ... } }`.
+
+### GET /api/saved-searches/:id — owner's document or `404 NOT_FOUND`.
+
+### PATCH /api/saved-searches/:id
+- Body (any subset): `{ "name"?, "criteria"?, "frequency"?, "active"? }`, validated identically to POST. Own-only, `404` otherwise. Success `200` with the updated document.
+
+### DELETE /api/saved-searches/:id — owner's document is removed; `404` for non-owners; success `200 { "deleted": true }`.
+
+### POST /api/saved-searches/:id/run
+- Executes the stored criteria through the shared filter builder against live listings.
+- Success `200`: `{ "success": true, "data": { "properties": [...], "pagination": { ... }, "query": "?listingType=sale&minPrice=..." } }` — `query` is the canonical `/listings` querystring for deep-linking.
+- Errors: `400 INVALID_ID`, `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 NOT_FOUND`.
+
+## Notification API (S10)
+
+Notification endpoints require authentication (`requireAuth`) for **any role** — buyers receive `listing_match`/`visit_update`/`message_alert`, agents receive `visit_update`/`message_alert`/`inquiry_update`. Every notification is strictly personal: `recipient` is always server-derived, list/count operations are scoped to `req.user.id`, and `:id` operations are recipient-scoped with `404 NOT_FOUND` on miss. There is no admin cross-user notification access (per-domain admin audit lists already exist).
+
+### GET /api/notifications
+- Query: `page`, `limit` (standard 10/50 clamp), optional `unread=true|false` (whitelisted; other values ignored). Ordering `createdAt DESC, _id DESC`.
+- Success `200`: `{ "notifications": [...], "pagination": { ... } }`.
+
+### GET /api/notifications/unread-count
+- Success `200`: `{ "success": true, "data": { "unread": 3 } }`.
+
+### PATCH /api/notifications/:id/read
+- Sets `read: true` + `readAt` (idempotent). Recipient-only, `404` otherwise. Returns the updated notification.
+
+### PATCH /api/notifications/read-all
+- Marks all of the caller's unread notifications read in one atomic update. Success `200`: `{ "success": true, "data": { "updated": N } }`.
+
+### DELETE /api/notifications/:id
+- Recipient-scoped dismissal (locked decision 5 — retention is otherwise indefinite). Success `200 { "deleted": true }`; `404` for non-owners.
+
+### Event matrix (ADR-030, locked)
+| Event | In-app | Email |
+|---|---|---|
+| `listing_match` — new listing matches a saved search | ✅ buyer | ✅ |
+| `visit_update` — visit confirmed/declined/cancelled | ✅ affected party | — (S8 emails preserved) |
+| `inquiry_update` — new inquiry submitted | ✅ agent | ✅ agent |
+| `message_alert` — new chat message | ✅ recipient | — |
+Notification/email failures never fail the primary mutation (`[NOTIFY_ERROR]`/`[MATCH_ERROR]` logged only). Price-drop alerts: deferred to S14+.
+
 ## Authorization
 Every protected endpoint must explicitly define required authentication and role/ownership rules.
 

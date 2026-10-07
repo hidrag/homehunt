@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { logoutUser } from "../../features/auth/authSlice";
-import { LogOut, User, Heart, MessageSquare, CalendarDays, Menu, X, MessagesSquare } from "lucide-react";
+import NotificationBell from "../ui/NotificationBell";
+import { LogOut, User, Heart, MessageSquare, CalendarDays, Menu, X, MessagesSquare, Bell, Bookmark } from "lucide-react";
 
 const Header = () => {
   const dispatch = useDispatch();
@@ -10,6 +11,7 @@ const Header = () => {
   const { user, isAuthenticated } = useSelector((state) => state.auth);
   const bookmarkCount = useSelector((state) => state.bookmarks.ids.length);
   const chatUnread = useSelector((state) => state.chat.unread);
+  const notificationUnread = useSelector((state) => state.notifications.unread);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -66,7 +68,24 @@ const Header = () => {
         desktopClass:
           "flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors",
       });
+      primaryLinks.push({
+        to: "/saved-searches",
+        label: "Searches",
+        icon: Bookmark,
+        desktopClass:
+          "flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors",
+      });
     }
+    // Personal notification inboxes are available to every role (ADR-030).
+    // Desktop renders the interactive bell (below); mobile gets a plain row.
+    primaryLinks.push({
+      to: "/notifications",
+      label: "Alerts",
+      icon: Bell,
+      badge: notificationUnread,
+      mobileOnly: true,
+      desktopClass: "hidden",
+    });
     // Messaging is available to both participants; admins audit over REST only.
     if (user.role === "buyer" || user.role === "agent") {
       primaryLinks.push({
@@ -123,6 +142,7 @@ const Header = () => {
 
           {isAuthenticated && user ? (
             <div className="flex items-center space-x-4">
+              <NotificationBell />
               <div className="flex items-center gap-2 text-sm text-gray-700">
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-indigo-700">
                   <User className="h-4 w-4" />

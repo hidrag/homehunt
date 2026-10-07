@@ -53,6 +53,14 @@ Use environment variables.
 - Message bodies are never logged. No secrets, tokens or cookies are logged on the socket path.
 - Single-process boundary: the default in-memory Socket.io adapter (ADR-028). Multi-instance deployment requires the Redis adapter before horizontal scaling — recorded for S16.
 
+## Saved searches & notifications (S10, ADR-029/ADR-030)
+- Saved criteria are **typed, whitelisted sub-fields — never Mongo query fragments**. The filter is rebuilt from typed fields at every execution via the shared `lib/propertyFilters.js` builder, so a criteria document tampered with out-of-band still cannot produce operator-shaped queries (`$where`, `$regex` payloads cannot execute). Only the builder emits operators; unknown keys are ignored; city matching goes through `escapeRegex`.
+- Saved-search authority: buyer-only, owner-scoped (`404` for non-owners), 20-active cap per user. Notification authority: strictly personal inboxes — every operation is recipient-scoped with `404` on miss; no admin cross-user view.
+- Notification recipients are always **server-derived from persisted event participants** (never request input, ADR-024 recipient rule). Notification titles/bodies are server-authored template text; client click-through maps `resourceRef.kind/id` through a fixed switch — no server-stored URLs are rendered (no open-redirect surface).
+- Delivery failure isolation: notification/email/sweep failures are logged (`[NOTIFY_ERROR]`/`[MATCH_ERROR]`) and never abort or roll back the primary mutation (property creation, visit transition, inquiry, message send). Provider errors are never returned to the client.
+- Socket delivery: authenticated sockets auto-join `user:${socket.user.id}` from the verified handshake token (no client-supplied room names — no join-authorization surface). `notification:new` is emitted only after the Notification document persists.
+- Notification bodies are never logged; emails use the shared `escapeHtml` templates.
+
 ## Uploads
 Validate:
 - file type

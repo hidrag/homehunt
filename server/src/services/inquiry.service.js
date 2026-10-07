@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import Inquiry from '../models/Inquiry.js';
 import Property from '../models/Property.js';
+import { notifyInquiryUpdate } from './notification.service.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -62,7 +63,7 @@ export const createInquiry = async (buyerId, { propertyId, name, email, phone, m
   validateInquiryInput({ propertyId, name, email, phone, message });
 
   // Fetch property to get the agent — never trust client-supplied agent
-  const property = await Property.findById(propertyId).select('agent').lean();
+  const property = await Property.findById(propertyId).select('agent title').lean();
   if (!property) {
     throw { status: 404, code: 'NOT_FOUND', message: 'Property not found' };
   }
@@ -80,6 +81,17 @@ export const createInquiry = async (buyerId, { propertyId, name, email, phone, m
     phone: phone ? phone.trim() : '',
     message: message.trim(),
     status: 'pending', // Always forced to pending
+  });
+
+  // S10 (ADR-030): in-app + email alert to the agent, fire-and-forget —
+  // notification/email failures never affect the inquiry response.
+  void notifyInquiryUpdate({
+    agentId: property.agent,
+    inquiryId: inquiry._id,
+    propertyTitle: property.title,
+    buyerName: name.trim(),
+    buyerEmail: email.trim().toLowerCase(),
+    message: message.trim(),
   });
 
   return inquiry.toObject();

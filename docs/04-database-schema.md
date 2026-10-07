@@ -238,3 +238,44 @@ Collection: `messages`
 - `{ conversation: 1, createdAt: 1, _id: 1 }` — paginated history (history is returned newest-first via `createdAt DESC, _id DESC`)
 
 **Lifecycle (ADR-027):** strictly append-only — no message edit or delete surface exists in S9. Property deletion does not cascade; threads and their messages survive.
+
+## SavedSearch Schema (S10)
+
+Collection: `savedSearches`
+
+**Fields:**
+- `_id` (ObjectId)
+- `user` (ObjectId, ref `'User'`, required) — always server-derived from `req.user.id`; buyer-only authority (ADR-029)
+- `name` (String, required, trimmed, max 80)
+- `criteria` (Object) — **typed sub-fields only, never Mongo query fragments** (ADR-029): `search` (String ≤100), `city` (String ≤100), `propertyType` (enum: apartment|house|villa|condo|land), `listingType` (enum: sale|rent), `minPrice` (Number ≥0), `maxPrice` (Number ≥0, ≥ minPrice), `bedrooms` (integer ≥0), `sort` (enum: newest|price_asc|price_desc) — all individually optional; the Mongo filter is rebuilt from these fields at every execution via the shared `lib/propertyFilters.js` builder
+- `frequency` (String, enum `['instant']`, default `'instant'`) — `daily` is **rejected** with `400 VALIDATION_ERROR` in this version (locked decision 2)
+- `active` (Boolean, default true) — pausing alerts is `active: false` (locked decision 4: no other preference surface in S10)
+- `lastNotifiedAt` (Date, nullable)
+- `createdAt`, `updatedAt` (Mongoose timestamps)
+
+**Indexes:**
+- `{ user: 1, updatedAt: -1 }` — buyer management list, newest first
+- `{ active: 1 }` — matching sweep over active searches
+
+**Cap:** 20 active saved searches per user (`429 SEARCH_LIMIT` beyond that).
+
+## Notification Schema (S10)
+
+Collection: `notifications`
+
+**Fields:**
+- `_id` (ObjectId)
+- `recipient` (ObjectId, ref `'User'`, required) — always server-derived from persisted event participants (ADR-030); never request input
+- `type` (String, enum `['listing_match','visit_update','message_alert','inquiry_update']`)
+- `title` (String, required, max 140) — server-authored template text
+- `body` (String, required, max 500) — server-authored template text (escaped values interpolated)
+- `resourceRef` (Object) — `{ kind: String enum ['property','visit','conversation','inquiry'], id: ObjectId }`; referenced entities are **never cascade-deleted** — a deleted target renders "no longer available" (ADR-025 pattern)
+- `read` (Boolean, default false)
+- `readAt` (Date, nullable)
+- `createdAt` (Mongoose timestamp)
+
+**Indexes:**
+- `{ recipient: 1, createdAt: -1 }` — inbox, newest first (`createdAt DESC, _id DESC` tiebreak)
+- `{ recipient: 1, read: 1, createdAt: -1 }` — unread count/filter
+
+**Lifecycle (ADR-030):** retained indefinitely (locked decision 5); the recipient may delete individual notifications (own-only, 404 on miss). Mark-read is the only other mutation.

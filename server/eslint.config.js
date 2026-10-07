@@ -9,6 +9,7 @@ export default [
       globals: {
         process: "readonly",
         console: "readonly",
+        URLSearchParams: "readonly",
       },
     },
     rules: {

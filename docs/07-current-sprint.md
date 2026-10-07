@@ -1,10 +1,39 @@
 # HomeHunt — Current Sprint
 
 ## Sprint
-S9 — Real-time Chat
+S10 — Saved Searches & Notification Engine
 
 ## Status
-[~] In progress — implementation complete; automated verification green (341 tests, 17 suites); not declared complete pending human QA.
+[~] In progress — implementation complete; automated verification green (395 tests, 21 suites); not declared complete pending human QA.
+
+## S10 Locked Decisions (user-approved 2026-10-06)
+1. Event matrix: `listing_match` in-app + email; `visit_update` in-app only (S8 emails preserved); `inquiry_update` in-app + email to agent; `message_alert` in-app only.
+2. Frequency: `instant` only; `daily` → `400 VALIDATION_ERROR`.
+3. Matching: inline fire-and-forget sweep on Property creation; `[MATCH_ERROR]` swallowed; never delays/fails the HTTP response.
+4. No granular preferences; pause via `active:false`.
+5. Retention indefinite; recipient may delete individual notifications (own-only, 404 miss).
+6. Price-drop alerts deferred to S14+ (documented in roadmap + decisions log).
+7. Shared filter builder extracted to `server/src/lib/propertyFilters.js`; S2 suites guard the extraction.
+
+## Planned deliverables
+- SavedSearch / Notification models + indexes
+- savedSearch + notification services/controllers/routes
+- Triggers wired into property creation, visit transitions, inquiry creation, chat messages
+- Email events `listing_match` + `inquiry_update` through the ADR-024 adapter
+- Socket user-room auto-join + `notification:new`
+- Frontend: save-search modal, `/saved-searches`, header bell + flyout, `/notifications`
+- Tests: savedSearch.mongo, notification.mongo, notification.socket (+ api matrices); baseline 341 preserved
+
+## S10 Explicitly out of scope
+- Radius/polygon criteria (S11), neighborhood criteria (S12), uploads (S13), Web Push/PWA (S15), price-drop alerts (S14+), marketing email, per-category preferences.
+
+## S10 manual QA checklist (human)
+- Buyer: on `/listings`, apply filters → "Save this search" → verify the saved search appears on `/saved-searches`; toggle active off/on; delete with confirmation; run → results match the live filtered listing; "Open as search" deep-link carries the canonical querystring.
+- Matching: with an active saved search, create a matching property as the agent → buyer receives an in-app notification (bell badge bumps live via socket) AND an email (fake/Resend per env); a non-matching property produces nothing.
+- Notifications: visit status change → in-app notification for the affected party (S8 emails unchanged); new inquiry → agent gets in-app + email; new chat message → counterpart gets in-app only (no email).
+- Inbox: `/notifications` pagination + unread filter, mark-read on click-through (deep-links: listing → `/listings/:id`, message → `/messages/:id`, visit → `/visits`, inquiry → `/inquiries`), mark-all-read zeroes the badge, dismiss removes a row.
+- Header bell: flyout shows recent items, refreshes on open; badge survives reload (hydrated from REST) and bumps live on new events; logout clears it.
+- Security spot-check: agent/admin tokens get 403 on `/api/saved-searches`; buyer A gets 404 on buyer B's saved searches and notifications.
 
 ## S9 Scope & Deliverables (implemented)
 - [x] Transport (ADR-026): `server/src/server.js` refactored from `app.listen()` to `http.createServer(app)` with a Socket.io server attached (CORS matching `CLIENT_URL`, `credentials: true`); `server/src/sockets/auth.middleware.js` authenticates the handshake from the `hh_access` cookie via `verifyAccessToken` and rejects unauthenticated/invalid sockets with `AUTH_UNAUTHORIZED`; `server/src/sockets/registry.js` holds the live `io` instance with no-op emit helpers for `app`-only contexts.

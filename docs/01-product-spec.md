@@ -44,6 +44,8 @@ Login → Dashboard → Review Listings → Approve/Reject → Manage Users/Agen
 - Property comparison
 - Contact/inquiries
 - Chat (S9: property-bound buyer↔agent threads, real-time delivery via Socket.io, unread counts, REST history; admins audit read-only)
+- Saved searches (S10: buyer-owned named searches with whitelisted criteria, instant alerts, pause via active:false)
+- Alerts (S10: in-app notification inbox + email for listing matches and new inquiries; visit/message alerts in-app only)
 - Schedule visits (S8: buyer requests, agent confirms/declines/completes, admin moderates; email notifications via ADR-024)
 - Notifications
 
@@ -82,7 +84,7 @@ Login → Dashboard → Review Listings → Approve/Reject → Manage Users/Agen
 - PDF calculator report
 - Legal/property documents
 - Verified-property badge
-- Saved-search alerts
+- Saved-search alerts (S10: instant in-app + email on new matching listings; no daily digest, no price-drop alerts — S14+)
 - Price-drop alerts
 - Email and push notifications
 - PWA/offline support

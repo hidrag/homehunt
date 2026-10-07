@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import propertyApi from '../services/propertyApi';
 import PropertyCard from '../components/ui/PropertyCard';
 import PropertyFilters from '../components/ui/PropertyFilters';
+import SaveSearchModal from '../components/ui/SaveSearchModal';
 import { RotateCcw } from 'lucide-react';
 
 const Listings = () => {
@@ -148,6 +149,9 @@ const Listings = () => {
           onClearFilters={handleClearFilters}
           isFiltered={isFiltered}
         />
+        <div className="mt-3 flex items-center gap-2">
+          <SaveSearchModal searchParams={searchParams} />
+        </div>
       </div>
 
       {/* Content area: Loading, Error, Empty, or Property Grid */}

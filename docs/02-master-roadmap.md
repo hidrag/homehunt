@@ -17,7 +17,7 @@ Two-week sprints are the default planning unit. Duration is a planning framework
 | S7 | Admin Platform & Moderation | [x] Complete (Ready for human QA) |
 | S8 | Visit Scheduling & Email Infrastructure | [~] In progress — implementation complete; automated verification green (282 tests); not declared complete pending human QA |
 | S9 | Real-time Chat | [~] In progress — implementation complete; automated verification green (341 tests); not declared complete pending human QA |
-| S10 | Saved Searches & Notification Engine | [ ] Planned |
+| S10 | Saved Searches & Notification Engine | [~] In progress — implementation complete; automated verification green (395 tests); not declared complete pending human QA |
 | S11 | Advanced Geo Search | [ ] Planned |
 | S12 | Neighborhood Explorer | [ ] Planned |
 | S13 | Documents, Verification & Virtual Tours | [ ] Planned |
@@ -27,9 +27,9 @@ Two-week sprints are the default planning unit. Duration is a planning framework
 | S17 | Recommendation Engine — Post-v1 | [ ] Planned |
 
 ## Status
-Current sprint: S9 — Real-time Chat (implementation complete; automated verification green; not declared complete pending human QA).
-Next sprint: S10 — Saved Searches & Notification Engine.
-S4 (Authentication & RBAC), S5 (Buyer Features), S6 (Agent System), S7 (Admin Platform), and S8 (Visit Scheduling) are complete.
+Current sprint: S10 — Saved Searches & Notification Engine (implementation underway).
+Next sprint: S11 — Advanced Geospatial Search.
+S4 (Authentication & RBAC), S5 (Buyer Features), S6 (Agent System), S7 (Admin Platform), S8 (Visit Scheduling), and S9 (Real-time Chat) are complete.
 
 Legend:
 - `[ ]` Planned

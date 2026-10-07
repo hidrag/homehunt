@@ -1,5 +1,6 @@
 import Bookmark from '../models/Bookmark.js';
 import Property from '../models/Property.js';
+import { matchSavedSearches } from './matching.service.js';
 
 const PROPERTY_TYPES = ['apartment', 'house', 'villa', 'condo', 'land'];
 const LISTING_TYPES = ['sale', 'rent'];
@@ -314,7 +315,12 @@ class PropertyService {
   async createProperty(agentId, input) {
     const sanitized = validateCreateInput(input);
     const property = await Property.create({ ...sanitized, agent: agentId });
-    return property.toObject({ versionKey: false });
+    const doc = property.toObject({ versionKey: false });
+    // S10 (ADR-029, locked decision 3): inline fire-and-forget saved-search
+    // sweep. Never delays or fails the creation response; all errors are
+    // swallowed internally with [MATCH_ERROR] logging.
+    void matchSavedSearches(doc);
+    return doc;
   }
 
   /**
