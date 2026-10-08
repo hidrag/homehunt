@@ -10,6 +10,7 @@ import adminRoutes from "./routes/admin.routes.js";
 import visitRoutes from './routes/visit.routes.js';
 import conversationRoutes from './routes/conversation.routes.js';
 import savedSearchRoutes from './routes/savedSearch.routes.js';
+import analyticsRoutes from './routes/analytics.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 
 const app = express();
@@ -41,6 +42,7 @@ app.use('/api/visits', visitRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/saved-searches', savedSearchRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Health Check API
 app.get('/api/health', (req, res) => {

@@ -1,10 +1,47 @@
 # HomeHunt — Current Sprint
 
 ## Sprint
+S14 — Mortgage, Comparison & Analytics
+
+## Status
+[~] In progress — implementation complete; automated verification green (553 tests, 34 suites); not declared complete pending human QA.
+
+## S14 Locked Decisions (user-approved 2026-10-07)
+1. Price history: `priceHistory: [{ price, changedAt }]` embedded on Property, capped 50 (drop oldest), appended ONLY by the update funnel when the price genuinely changes. Never client-writable (absent from both sanitizer pick-lists). Public payloads expose trimmed `{ price, changedAt }` only.
+2. Price-drop alerts: fire-and-forget `sweepPriceDrops(property, oldPrice)` on real decrease; matching reuses `buildPropertyFilter` (ADR-029 single-builder rule); notification `price_drop` = in-app + email to each matching saved-search owner (extends the locked ADR-030 matrix with user approval); errors swallowed with `[PRICE_DROP_ERROR]`.
+3. Market analytics: public `GET /api/analytics/market?city=&listingType=` — exact case-insensitive `address.city` match (anchored escaped regex, never a shaped pattern), `status: available` only; stats count/avgPrice/medianPrice/min/max/avgPricePerSqft (area>0 only); <3 samples → `dataAvailable:false`; in-process 10-min TTL cache with global revision-counter invalidation on property writes. Locality granularity descoped (no locality field — synthesis refused, ADR-034 reasoning).
+4. Comparison: public `GET /api/properties/compare?ids=` (1–4 ObjectIds, deduped, declared BEFORE `/:id`) → `{ properties (publicized whitelisted projection + derived pricePerSqft), missing }` — partial results by design. Selection lives in localStorage (cap 4, cross-tab sync) + `?ids=` URL on `/compare`; deliberately NOT server-synced.
+5. EMI: published formula `P·r·(1+r)^n/((1+r)^n−1)`, r = annual/12/100, r=0 → P/n, whole-rupee rounding, bounds P ≤ 1e10 / rate ≤ 30 / 1 ≤ n ≤ 600 (ADR-038). Shared pure-ESM module; server Jest unit tests cover the math (no client test framework added).
+6. Governance: S13 flipped to [x] Complete; PDF calculator report descoped in the product spec.
+
+## Planned deliverables
+- Property.priceHistory + append funnel + trimmed public shape + `price_drop` notification type
+- priceDrop sweep service + analytics service (cache/revision) + analytics controller/routes + compare service/route
+- ADR-037/038 + docs (01/02/04/05/06/07/11/13)
+- Tests: mortgageCalculator.unit (11) + property.priceHistory.mongo (7) + analytics.mongo (8) + compare.api (8); 519 baseline preserved → 553 total
+
+## S14 Explicitly out of scope
+- PDF calculator report export (descoped — locked), locality-level trends (no data), lending/credit/underwriting integrations, recommendation engine (S17), push notifications (S15), server-synced compare lists.
+
+## S14 status
+Verification green: 553 tests / 34 suites (`--runInBand`, Node v24.20.0), server lint clean, client lint clean, client build clean, `git diff --check` clean. Not declared complete pending human QA.
+
+## S14 manual QA checklist (human)
+- Listing detail: "Mortgage estimator" card computes sane EMI (e.g. ₹50L @ 8.5% 20y → ~₹43,391/mo); changing down payment/rate/tenure updates instantly; amortization schedule expands/collapses; rate > 30 or tenure > 50y shows the field error.
+- Compare: click the compare toggle on 2–4 listing cards (and the detail-page toggle) → floating tray appears; "Compare (n)" opens `/compare?ids=…` with a difference-highlighted matrix; unknown/stale ids show the "no longer available" note; toggling off inside the matrix removes a column; the selection survives reload and respects max 4 (5th is disabled with a tooltip). Copy the compare URL into a fresh/incognito tab → the same matrix loads.
+- Market widget: a city with ≥3 available seeded listings shows "This listing vs city average" with the below/at/above badge; a city with <3 shows the quiet "not enough listings yet" state — never a misleading average.
+- Price drop: with an active saved search matching a listing, agent edits the price downward → the buyer receives an in-app `price_drop` notification (bell + inbox label "Price drop") AND an email (fake provider log / Resend per env); raising the price or editing non-price fields produces nothing; the listing detail payload shows `priceHistory` entries; a create/update payload attempting to write `priceHistory` directly cannot (mass-assignment guard).
+- API spot-checks (curl): `/api/properties/compare?ids=<a>,<b>` public 200; `?ids=` empty/>4/malformed → 400 VALIDATION_ERROR; `/api/analytics/market?city=Bengaluru` public 200 envelope; missing city → 400.
+- Regression: listings/detail/bookmarks/saved-searches/notifications behave exactly as before; `GET /api/properties/:id` envelope unchanged apart from the additive `priceHistory`.
+
+## S13 delivery record (complete)
+S13 — Documents, Verification & Virtual Tours is complete: PropertyDocument collection, upload adapters, verification lifecycle, virtual tours, committed (6eaf142). Verification at sign-off: 519 tests / 30 suites green.
+
+## Sprint
 S13 — Documents, Verification & Virtual Tours
 
 ## Status
-[~] In progress — implementation complete; automated verification green (519 tests, 30 suites); not declared complete pending human QA.
+[x] Complete — committed and pushed (6eaf142). Verification at sign-off: 519 tests, 30 suites; server lint clean, client lint clean, client build clean.
 
 ## S13 Locked Decisions (user-approved 2026-10-07)
 1. Storage: dedicated `propertydocuments` collection (metadata only; bytes with the provider). Property gains `verificationStatus`/`verifiedAt`/`verifiedBy`/`rejectionReason`/`virtualTourUrl`; verification fields server-managed only (mass-assignment rejected). Dual-shape `images` normalization (legacy URL strings accepted; stored `{ imageId, url, publicId, alt }`; public payloads keep the ordered URL-string array).
@@ -26,7 +63,7 @@ S13 — Documents, Verification & Virtual Tours
 - Video hosting/transcoding, document format conversion, OCR, virus scanning (S16 infra), image CDN transforms, drag-and-drop galleries, bulk ZIP import.
 
 ## S13 status
-Verification green: 519 tests / 30 suites (`--runInBand`, Node v24.20.0), server lint clean, client lint clean, client build clean, `git diff --check` clean. Not declared complete pending human QA.
+Verification green: 519 tests / 30 suites (`--runInBand`, Node v24.20.0), same-session gates. Declared complete (6eaf142) after human QA sign-off.
 
 ## S13 manual QA checklist (human)
 - Dev DB reseed → new listings show no verification badge (unverified default).

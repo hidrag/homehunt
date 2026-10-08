@@ -7,7 +7,7 @@ const notificationSchema = new mongoose.Schema(
     type: {
       type: String,
       required: true,
-      enum: ['listing_match', 'visit_update', 'message_alert', 'inquiry_update', 'verification_update'],
+      enum: ['listing_match', 'visit_update', 'message_alert', 'inquiry_update', 'verification_update', 'price_drop'],
     },
     // Server-authored template text (max lengths per docs/04 S10 contract)
     title: { type: String, required: true, trim: true, maxlength: 140 },

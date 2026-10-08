@@ -27,4 +27,5 @@ export const TYPE_LABELS = {
   message_alert: 'Message',
   inquiry_update: 'Inquiry',
   verification_update: 'Verification',
+  price_drop: 'Price drop',
 };

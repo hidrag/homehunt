@@ -13,6 +13,9 @@ import mongoose from 'mongoose';
  */
 const IMAGE_URL_PATTERN = /^https?:\/\/\S+$/i;
 
+/** S14 (ADR-037) — hard bound for the price trail (oldest entries drop). */
+export const PRICE_HISTORY_CAP = 50;
+
 const normalizeImageEntry = (item) => {
   const url = typeof item === 'string' ? item.trim() : String(item?.url ?? '').trim();
   if (!url || !IMAGE_URL_PATTERN.test(url) || url.length > 500) {
@@ -143,6 +146,15 @@ const propertySchema = new mongoose.Schema(
       maxlength: 500,
       default: null,
       set: (value) => (value === '' ? null : value),
+    },
+    // S14 (ADR-037) — append-only price trail, maintained ONLY by the
+    // property update funnel (never client-writable: absent from both
+    // sanitizers' pick-lists). Bounded at PRICE_HISTORY_CAP entries
+    // (oldest dropped); public payloads expose the trimmed
+    // { price, changedAt } shape via publicizeProperty().
+    priceHistory: {
+      type: [{ price: { type: Number, required: true, min: 0 }, changedAt: { type: Date, default: Date.now } }],
+      default: [],
     },
   },
   { timestamps: true }

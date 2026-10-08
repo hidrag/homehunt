@@ -1,6 +1,8 @@
 import Bookmark from '../models/Bookmark.js';
-import Property from '../models/Property.js';
+import Property, { PRICE_HISTORY_CAP } from '../models/Property.js';
 import { matchSavedSearches } from './matching.service.js';
+import { sweepPriceDrops } from './priceDrop.service.js';
+import { bumpAnalyticsRevision } from './analytics.service.js';
 import { publicizeProperty, publicizeProperties } from '../lib/propertyPresentation.js';
 import { normalizeTourUrl } from '../lib/virtualTour.js';
 
@@ -362,6 +364,8 @@ class PropertyService {
     const sanitized = validateCreateInput(input);
     const property = await Property.create({ ...sanitized, agent: agentId });
     const doc = publicizeProperty(property.toObject({ versionKey: false }));
+    // S14 (ADR-037): invalidate market caches (coarse, cheap).
+    bumpAnalyticsRevision();
     // S10 (ADR-029, locked decision 3): inline fire-and-forget saved-search
     // sweep. Never delays or fails the creation response; all errors are
     // swallowed internally with [MATCH_ERROR] logging.
@@ -411,8 +415,28 @@ class PropertyService {
    */
   async updateProperty(property, input) {
     const sanitized = validateUpdateInput(input);
+
+    // S14 (ADR-037): the price trail is maintained ONLY here — appending
+    // the PREVIOUS price when the new price genuinely differs. Clients
+    // cannot write priceHistory (absent from the sanitizer pick-list).
+    const priceChanged =
+      sanitized.price !== undefined && Number(sanitized.price) !== Number(property.price);
+    const oldPrice = Number(property.price);
+    if (priceChanged) {
+      property.priceHistory = [
+        ...(property.priceHistory || []),
+        { price: oldPrice, changedAt: new Date() },
+      ].slice(-PRICE_HISTORY_CAP);
+    }
+
     property.set(sanitized);
     await property.save();
+
+    bumpAnalyticsRevision();
+    if (priceChanged) {
+      // Fire-and-forget; sweep re-checks newPrice < oldPrice internally.
+      void sweepPriceDrops(property, oldPrice);
+    }
     return publicizeProperty(property.toObject({ versionKey: false }));
   }
 
@@ -425,6 +449,7 @@ class PropertyService {
   async deleteProperty(property) {
     await property.deleteOne();
     await Bookmark.deleteMany({ property: property._id });
+    bumpAnalyticsRevision();
     return { deleted: true };
   }
 }

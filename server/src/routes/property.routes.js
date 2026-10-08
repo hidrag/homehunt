@@ -1,6 +1,7 @@
 import express from 'express';
 import propertyController from '../controllers/property.controller.js';
 import neighborhoodController from '../controllers/neighborhood.controller.js';
+import * as analyticsController from '../controllers/analytics.controller.js';
 import * as mediaController from '../controllers/media.controller.js';
 import { requireAuth, requireRole } from '../middlewares/auth.middleware.js';
 import { requireOwnership } from '../middlewares/ownership.middleware.js';
@@ -17,6 +18,11 @@ router.get('/mine', requireAuth, requireRole('agent', 'admin'), propertyControll
 // S12 — Neighborhood context (public read, parity with GET /:id). Declared
 // before the generic /:id handler per the route-ordering convention above.
 router.get('/:id/neighborhood', neighborhoodController.getNeighborhood);
+
+// S14 (ADR-038) — comparison matrix (public, parity with GET /:id). The
+// literal /compare segment MUST be declared before any /:id pattern, same
+// ordering rule as /mine and /:id/neighborhood above.
+router.get('/compare', analyticsController.compare);
 
 // S13 — Media & verification document surface (ADR-036). Access gate
 // requires auth; non-owner/non-admin receive 404, never 403. Declared

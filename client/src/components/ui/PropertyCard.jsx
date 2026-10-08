@@ -2,6 +2,7 @@ import React from 'react';
 import { MapPin, Bed, Bath, Square } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import BookmarkButton from "./BookmarkButton";
+import CompareButton from "./CompareButton";
 import VerificationBadge from "./VerificationBadge";
 
 const PropertyCard = ({ property }) => {
@@ -88,6 +89,10 @@ const PropertyCard = ({ property }) => {
       {/* BookmarkButton placed as sibling of Link, not nested inside it */}
       <div className="absolute bottom-[calc(100%-3.5rem)] right-3 z-10">
         <BookmarkButton propertyId={property._id} />
+      </div>
+      {/* S14 — compare toggle under the bookmark (sibling, not nested) */}
+      <div className="absolute top-[68px] right-3 z-10">
+        <CompareButton propertyId={property._id} />
       </div>
     </div>
   );

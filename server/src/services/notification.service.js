@@ -136,6 +136,27 @@ export const notifyVerificationUpdate = async (property, decision, reason) => gu
 });
 
 /**
+ * `price_drop` — in-app + email (S14, ADR-037; extends the locked ADR-030
+ * matrix with user approval). Called by the price-drop sweep for each
+ * matching saved search whose owner opted into listing matches. Recipient
+ * is the saved search's owner (server-derived).
+ */
+export const notifyPriceDrop = async (search, property, oldPrice, newPrice, email) => guarded('price_drop', async () => {
+  const city = property.address?.city || '';
+  const title = `Price drop on "${truncate(search.name, 50)}"`;
+  const body = `${truncate(property.title, 120)}${city ? ` in ${city}` : ''}: ${money(oldPrice)} → ${money(newPrice)}`;
+  await insert({ recipient: search.user, type: 'price_drop', title, body, resourceRef: { kind: 'property', id: property._id } });
+  if (email) {
+    await sendNotificationEmail({
+      to: email,
+      event: 'price_drop',
+      subject: 'A saved-search listing dropped in price',
+      html: `<h1>A saved-search listing dropped in price</h1><p><strong>${escapeHtml(search.name)}</strong></p><p>${escapeHtml(property.title)} — was ${escapeHtml(money(oldPrice))}, now <strong>${escapeHtml(money(newPrice))}</strong>${city ? ` in ${escapeHtml(city)}` : ''}</p><p><a href="${escapeHtml(clientUrl())}/listings/${escapeHtml(String(property._id))}">View listing</a></p>`,
+    });
+  }
+});
+
+/**
  * Inbox operations — every query is recipient-scoped; misses are 404
  * (enumeration guard, ADR-030).
  */

@@ -118,6 +118,7 @@ URL Rules:
   ```
 - **Guarantees (S3)**:
   - `images`: Array of URL strings is preserved in exact database order. (S13: storage normalizes images to objects; public payloads keep the URL-string array contract via server-side flattening — ADR-036.)
+  - `priceHistory` (S14 addition, ADR-037): ascending array of `{ price, changedAt }` — the previous price at each recorded change (bounded at 50 entries). Maintained only by the server update funnel; never client-writable; no internal actor metadata is exposed.
   - `verificationStatus` / `verifiedAt` / `rejectionReason` / `virtualTourUrl` (S13, ADR-036) are present for every listing; `verificationStatus` defaults to `'unverified'`. These fields are server-managed and are never client-writable (ignored on create/update mass-assignment).
   - `location`: Always returned in GeoJSON format `{ type: "Point", coordinates: [longitude, latitude] }`. Consumers needing `[latitude, longitude]` (e.g. Leaflet) must invert coordinates explicitly.
 - **Error Responses**:
@@ -508,7 +509,9 @@ Notification endpoints require authentication (`requireAuth`) for **any role** �
 | `inquiry_update` — new inquiry submitted | ✅ agent | ✅ agent |
 | `message_alert` — new chat message | ✅ recipient | — |
 | `verification_update` — admin approve/reject decision (S13, ADR-036) | ✅ listing owner (agent) | — |
-Notification/email failures never fail the primary mutation (`[NOTIFY_ERROR]`/`[MATCH_ERROR]` logged only). Price-drop alerts: deferred to S14+.
+Notification/email failures never fail the primary mutation (`[NOTIFY_ERROR]`/`[MATCH_ERROR]`/`[PRICE_DROP_ERROR]` logged only). Price-drop alerts delivered in S14 (ADR-037):
+
+| `price_drop` — listing price decreased & still matches an active saved search (S14, ADR-037) | ✅ search owner (buyer) | ✅ search owner |
 
 ## Authorization
 Every protected endpoint must explicitly define required authentication and role/ownership rules.
@@ -657,3 +660,20 @@ Upload limits (server-enforced; multer memoryStorage + magic-byte sniffing per A
 **Mass-assignment guard:** `verificationStatus`, `verifiedAt`, `verifiedBy`, `rejectionReason` are server-managed. The standard create/update sanitizers never pick them up — payloads attempting to set them are silently dropped, not errors (S3 convention for ignored protected fields). `status` remains protected exactly as in S6.
 
 **Virtual tour (ADR-036):** `virtualTourUrl` on create/update is normalized to a canonical embed URL on the approved host whitelist (youtube-nocookie / vimeo player / matterport player / kuula static player). Unrecognized hosts or malformed ids → `400 VALIDATION_ERROR` with the normalization reason. Clients re-validate the stored canonical form against the same whitelist before rendering any iframe.
+
+## Comparison & Analytics API (S14, ADR-037/038)
+
+### GET /api/properties/compare
+- Auth: none (public read, exact parity with `GET /api/properties/:id`). Declared **before** `/:id` in property.routes (route-ordering convention).
+- Query: `ids` — comma-separated ObjectIds, deduplicated, 1–4 after dedupe. Empty / >4 / malformed → `400 VALIDATION_ERROR`.
+- Success `200` → `data`: `{ properties: [{ …whitelisted publicized projection, pricePerSqft }], missing: ["<unknownId>"] }` — **partial results by design**: unknown/deleted ids appear in `missing`, never a whole-request 404. Request order preserved. `pricePerSqft = round(price / area)` where `area > 0`, else `null`. Mixed listing statuses allowed (badge on the client).
+- No walk-score or neighborhood data embedded (would force per-column spatial sweeps); the client fetches `/api/properties/:id/neighborhood` lazily per column if needed.
+
+### GET /api/analytics/market
+- Auth: none (public discovery). Aggregates computed from public `status: "available"` listings only; no user data — see the docs/06 reading note (platform analytics remain admin-gated).
+- Query: `city` (required, 1–100 chars) — exact, case-insensitive match on `address.city` via an anchored escaped pattern; user text is never a shaped regex. `listingType` optional whitelist `sale|rent` — malformed → `400 VALIDATION_ERROR`.
+- Success `200` → `data.analytics`: `{ city, listingType, generatedAt, minSample, dataAvailable, stats | null }`; when available `stats = { count, avgPrice, medianPrice, minPrice, maxPrice, avgPricePerSqft }` (psf averaged per-listing where `area > 0`).
+- **Sample-honesty rule:** `count < 3` → `dataAvailable: false`, `stats: null` — a one-listing "average" is never presented (ADR-034 precedent).
+- Served from an in-process 10-minute TTL cache with global revision-counter invalidation on property writes (single-process boundary per ADR-026/029).
+
+**Price history & price-drop sweep (ADR-037):** `priceHistory` is server-owned — appended by `property.service.updateProperty` only when the submitted price differs from the stored price (previous price recorded; cap 50 drop-oldest). Absent from both sanitizer pick-lists (mass-assignment silently dropped). A genuine **decrease** fires `sweepPriceDrops` fire-and-forget: active saved searches whose `buildPropertyFilter` criteria still match the listing (ADR-029 single matching implementation) notify their owner (`price_drop`, in-app + email). Errors swallowed with `[PRICE_DROP_ERROR]`; sweeps never delay or fail the mutation.

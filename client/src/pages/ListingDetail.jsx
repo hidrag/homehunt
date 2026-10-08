@@ -9,7 +9,10 @@ import InquiryForm from "../components/ui/InquiryForm";
 import VisitForm from "../components/ui/VisitForm";
 import MessageAgentButton from "../components/ui/MessageAgentButton";
 import NeighborhoodSection from "../components/property/NeighborhoodSection";
+import MortgageCalculator from "../components/property/MortgageCalculator";
+import MarketContext from "../components/property/MarketContext";
 import VerificationBadge from "../components/ui/VerificationBadge";
+import CompareButton from "../components/ui/CompareButton";
 import VirtualTour from "../components/ui/VirtualTour";
 
 const ListingDetail = () => {
@@ -252,8 +255,9 @@ const ListingDetail = () => {
               {property.listingType === "rent" ? "Per Month" : "Listed Price"}
             </p>
 
-            <div className="mb-6">
+            <div className="mb-6 flex items-center gap-2">
               <BookmarkButton propertyId={property._id} className="shadow-sm" />
+              <CompareButton propertyId={property._id} className="border border-gray-200 shadow-sm" />
             </div>
 
             <div className="space-y-4 border-t border-gray-100 pt-4 text-sm">
@@ -283,6 +287,9 @@ const ListingDetail = () => {
               </div>
             </div>
             </div>
+
+            <MarketContext property={property} />
+            <MortgageCalculator price={property.price} />
 
              <InquiryForm propertyId={property._id} />
              <MessageAgentButton propertyId={property._id} />

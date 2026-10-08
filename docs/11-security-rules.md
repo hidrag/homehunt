@@ -99,3 +99,10 @@ Use appropriate:
 - One indexed `2dsphere` sweep serves the whole payload (no N+1); category grouping/top-10/score are in-memory over the radius-capped candidate set.
 - POI data is internal-seeded: no runtime external API, no new secrets or environment variables (ADR-033).
 - Client renders POI names via React text nodes and Leaflet `textContent` popups only; category colors come from a fixed local map — no server-supplied markup or URLs are rendered.
+
+## Comparison, analytics & price history (S14, ADR-037/ADR-038)
+- `ids` for `GET /api/properties/compare` are validated element-wise with `isValidObjectId` before any query is built (no query fragments from user text); list is deduped and capped at 4. Partial results never leak private fields: the compare projection is an explicit field whitelist run through the same publicize flattening as listing reads.
+- `city` for `GET /api/analytics/market` is treated as exact literal text: length-bounded scalar, escaped, anchored into a RegExp on the indexed `address.city` field. User text can never shape a pattern (no ReDoS/NoSQL injection surface). Aggregation reads public-available listings only and is served behind a TTL cache with revision invalidation; the endpoint is rate-limited by the global limiter.
+- `priceHistory` is server-owned state: appended only inside the update funnel, absent from every sanitizer pick-list (attempted writes are silently dropped), and public payloads expose only `{ price, changedAt }` — change-actor metadata stays internal.
+- The price-drop sweep is fire-and-forget with a hard limit and `[PRICE_DROP_ERROR]` swallowing; it reuses the single `buildPropertyFilter` matching implementation and cannot delay or fail the listing mutation. Notification emails render listing/search names through `escapeHtml`.
+- EMI math is pure client/server-shared with hard input bounds (finite scalars, bounded principal/rate/tenure) so `(1+r)^n` cannot overflow; outputs are presentation estimates explicitly labeled not-a-lending-offer.

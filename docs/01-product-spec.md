@@ -81,7 +81,7 @@ Login → Dashboard → Review Listings → Approve/Reject → Manage Users/Agen
 - Street View integration — descoped (Google-proprietary; offline-first policy)
 - Virtual tour support
 - Mortgage/EMI calculator
-- PDF calculator report
+- PDF calculator report — descoped (S14 ruling: no print/export infrastructure; revisit only with real demand)
 - Legal/property documents
 - Verified-property badge
 - Saved-search alerts (S10: instant in-app + email on new matching listings; no daily digest, no price-drop alerts — S14+)

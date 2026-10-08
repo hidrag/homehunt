@@ -18,6 +18,13 @@ export const publicizeProperty = (doc) => {
       .map((img) => (typeof img === 'string' ? img : img && typeof img.url === 'string' ? img.url : null))
       .filter((v) => v !== null);
   }
+  // S14 (ADR-037): public price trail exposes ONLY { price, changedAt },
+  // newest last — internal row metadata never reaches public payloads.
+  if (Array.isArray(out.priceHistory)) {
+    out.priceHistory = out.priceHistory
+      .filter((entry) => entry && typeof entry === 'object' && typeof entry.price === 'number')
+      .map((entry) => ({ price: entry.price, changedAt: entry.changedAt }));
+  }
   return out;
 };
 

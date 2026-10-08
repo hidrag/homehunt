@@ -24,6 +24,7 @@ import Admin from "./pages/Admin";
 import AgentDashboard from "./pages/AgentDashboard";
 import ListingForm from "./pages/ListingForm";
 import ListingDetail from "./pages/ListingDetail";
+import Compare from "./pages/Compare";
 import Bookmarks from "./pages/Bookmarks";
 import MyInquiries from "./pages/MyInquiries";
 import Visits from "./pages/Visits";
@@ -82,6 +83,7 @@ function AppContent() {
           <Route index element={<Home />} />
           <Route path="listings" element={<Listings />} />
           <Route path="listings/:id" element={<ListingDetail />} />
+          <Route path="compare" element={<Compare />} />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
           <Route

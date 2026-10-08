@@ -86,6 +86,7 @@ The `Property` model enforces the following core domain fields:
 - `verifiedBy` (ObjectId, ref `'User'`, nullable) — deciding admin, server-derived **— S13**
 - `rejectionReason` (String, trimmed, max 500, nullable) — required input on reject, cleared otherwise **— S13**
 - `virtualTourUrl` (String, trimmed, max 500, nullable) — canonicalized embed URL whitelisted to youtube-nocookie / vimeo player / matterport player / kuula static player (normalized server-side; `lib/virtualTour.js`) **— S13 (ADR-036)**
+- `priceHistory` (embedded array, default `[]`) — `[{ price (Number ≥ 0), changedAt (Date) }]`; the previous price at each recorded change, bounded at 50 entries (drop-oldest). Appended ONLY by the property update funnel when the submitted price differs from the stored price; never client-writable (absent from both sanitizer pick-lists). Public payloads expose the trimmed `{ price, changedAt }` shape only — no actor metadata. Bounded-append rather than a collection because per-listing price changes are empirically few (no pagination/query need) **— S14 (ADR-037)**
 
 **Timestamps:**
 - `createdAt`, `updatedAt` (Mongoose timestamps)

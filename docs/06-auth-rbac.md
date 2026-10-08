@@ -40,6 +40,7 @@ Both must be enforced server-side.
 | Verify properties | No | No | Yes |
 | View platform analytics | No | Limited | Yes |
 
+**Reading note (S14, ADR-037):** "platform analytics" in this matrix means the operational/admin surface (users, inquiries, agent performance — admin-authenticated only). The public market-discovery aggregate `GET /api/analytics/market` (S14) is a *discovery feature* computed exclusively from public `available` listings with a min-sample honesty floor — it exposes no user data and is public by design, mirroring public listing reads. Operational analytics remain admin-only.
 Ownership checks are required for agent-owned resources. Implemented in S6 via `requireOwnership(Model, ownerField, { allowAdmin })`: agents manage only their own listings; admins bypass the ownership comparison for properties ("Edit any property"). Inquiry status management remains strictly agent-scoped on the S6 agent route; S7 adds a separate explicit admin route (`PATCH /api/admin/inquiries/:id/status`) for cross-agent administration.
 
 ## S7 admin platform (approved decisions)

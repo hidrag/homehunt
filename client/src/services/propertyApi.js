@@ -99,6 +99,19 @@ export const propertyApi = {
   },
 
   /**
+   * S14 (ADR-038) — public comparison matrix. ids: array of 1-4 ObjectIds.
+   * Returns { success, data: { properties, missing } } — partial results
+   * by design: unknown ids come back in `missing`, not a 404.
+   */
+  compare: async (ids, options = {}) => {
+    const response = await api.get('/properties/compare', {
+      params: { ids: ids.join(',') },
+      ...options,
+    });
+    return response.data;
+  },
+
+  /**
    * Create a property listing (agent/admin; ownership derived server-side)
    */
   createProperty: async (payload) => {
