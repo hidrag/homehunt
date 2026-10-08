@@ -86,8 +86,8 @@ Login → Dashboard → Review Listings → Approve/Reject → Manage Users/Agen
 - Verified-property badge
 - Saved-search alerts (S10: instant in-app + email on new matching listings; no daily digest, no price-drop alerts — S14+)
 - Price-drop alerts
-- Email and push notifications
-- PWA/offline support
+- Email and push notifications (S15: in-app socket delivery + email are live; a client-only Notification API surfaces backgrounded-tab alerts. **True Web Push / VAPID is deferred post-MVP** — ADR-039.)
+- PWA/offline support (S15: installable PWA, service-worker app-shell + allow-listed read caching, offline banner + cached-copy flag; offline is read-only — no mutation sync queue. ADR-039.)
 - Real-time chat
 - Moderation
 - Recommendation engine as post-v1 enhancement

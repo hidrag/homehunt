@@ -5,6 +5,7 @@ import { Bell } from 'lucide-react';
 import notificationApi from '../../services/notificationApi';
 import { NotificationRow } from './NotificationRow';
 import { notificationHref } from '../../lib/notifications';
+import { notificationPermission, requestNotificationPermission } from '../../lib/backgroundNotifications';
 import { clearUnread, fetchUnreadCount } from '../../features/notifications/notificationsSlice';
 
 /**
@@ -82,6 +83,14 @@ const NotificationBell = () => {
     }
   };
 
+  // S15 — explicit user gesture to opt into OS-level notifications for a
+  // backgrounded tab. Never requested on load (browser/UX requirement).
+  const [permission, setPermission] = useState(() => notificationPermission());
+  const enableDesktopAlerts = async () => {
+    const result = await requestNotificationPermission();
+    setPermission(result);
+  };
+
   return (
     <div ref={containerRef} className="relative">
       <button
@@ -139,6 +148,21 @@ const NotificationBell = () => {
             >
               View all notifications
             </Link>
+            {/* S15 — opt-in desktop alerts (explicit gesture only) */}
+            {permission === 'default' && (
+              <button
+                type="button"
+                onClick={enableDesktopAlerts}
+                className="mt-1 flex min-h-11 w-full items-center justify-center rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-50"
+              >
+                Enable desktop alerts
+              </button>
+            )}
+            {permission === 'granted' && (
+              <p className="mt-1 px-2 pb-1 text-center text-xs text-gray-400">
+                Desktop alerts on while this tab is in the background.
+              </p>
+            )}
           </div>
         </div>
       )}

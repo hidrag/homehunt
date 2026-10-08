@@ -73,3 +73,11 @@ Major components must account for:
 - error (descriptive error with retry option)
 - disabled (visual opacity + `pointer-events-none` + `aria-disabled`)
 - mobile, tablet, and desktop viewports
+
+## Offline & PWA patterns (S15, ADR-039)
+- **Connectivity banner**: full-width amber strip (`min-h-11 bg-amber-100 text-amber-900`, `role="status"`) directly under the Header while offline; states that cached content is being shown and may be outdated. Never a blocking modal.
+- **Cached-copy flag**: an amber pill (`rounded-full bg-amber-100 text-amber-900`, `WifiOff` icon, `role="status"`) at the top of a detail view whose payload came from the service-worker cache — staleness is always explicit, never silent.
+- **Offline page**: centred `WifiOff` glyph + plain-language copy + a primary "Go to Home" action (`bg-indigo-600`); same empty-state discipline as other pages.
+- **Route loading**: a single shared `PageSpinner` (`h-10 w-10 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600`, `role="status"`) is the `<Suspense>` fallback for every lazily-loaded route — lazy navigation must never flash a blank screen.
+- **Theme/brand**: manifest `theme_color` and the HTML `theme-color` meta are the brand indigo `#4f46e5`; manifest `background_color` is `#f9fafb` (the app's `bg-gray-50` shell). Icons carry the same indigo tile + white house glyph.
+- **Notification opt-in**: the "Enable desktop alerts" control lives in the bell flyout (`min-h-11`, explicit user gesture); once granted it is replaced by a quiet one-line status — no permission prompt on load.

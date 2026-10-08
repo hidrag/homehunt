@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { MapPin, Bed, Bath, Square, ArrowLeft, Building, ShieldCheck } from 'lucide-react';
+import { MapPin, Bed, Bath, Square, ArrowLeft, Building, ShieldCheck, WifiOff } from 'lucide-react';
 import propertyApi from '../services/propertyApi';
+import { readFromSwCache } from '../lib/offlineCache';
 import PropertyGallery from "../components/ui/PropertyGallery";
 import PropertyMap from "../components/ui/PropertyMap";
 import BookmarkButton from "../components/ui/BookmarkButton";
@@ -22,6 +23,8 @@ const ListingDetail = () => {
   const [property, setProperty] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // S15 — true when the detail payload came from the SW cache (offline).
+  const [servedFromCache, setServedFromCache] = useState(false);
   // S12: neighborhood overlay state for the Location map (page-local per ADR-005).
   const [neighborhoodPois, setNeighborhoodPois] = useState(null);
   const [mapCategory, setMapCategory] = useState('all');
@@ -39,6 +42,7 @@ const ListingDetail = () => {
       try {
         setLoading(true);
         setError(null);
+        setServedFromCache(false);
 
         const result = await propertyApi.getPropertyById(id);
 
@@ -47,7 +51,14 @@ const ListingDetail = () => {
         }
       } catch (err) {
         console.error('Failed to fetch property details:', err);
-        if (err.response?.status === 404 || err.response?.status === 400) {
+        // S15 — offline fallback: a previously cached public read may render
+        // read-only with an explicit staleness flag. Never silently presented
+        // as live data.
+        const cached = await readFromSwCache(`/properties/${id}`);
+        if (cached?.data?.property) {
+          setProperty(cached.data.property);
+          setServedFromCache(true);
+        } else if (err.response?.status === 404 || err.response?.status === 400) {
           setError('Property not found.');
         } else {
           setError('Failed to load property details. Please try again later.');
@@ -131,6 +142,16 @@ const ListingDetail = () => {
               </span>
               <VerificationBadge status={property.verificationStatus} />
             </div>
+            {/* S15 — offline staleness flag */}
+            {servedFromCache && (
+              <div
+                role="status"
+                className="mb-3 inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900"
+              >
+                <WifiOff className="h-3.5 w-3.5" aria-hidden="true" />
+                Cached copy — may be outdated
+              </div>
+            )}
             <h1 className="text-3xl font-bold text-gray-900 sm:text-4xl">
               {property.title}
             </h1>

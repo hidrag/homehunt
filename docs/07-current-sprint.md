@@ -1,10 +1,48 @@
 # HomeHunt — Current Sprint
 
 ## Sprint
-S14 — Mortgage, Comparison & Analytics
+S15 — PWA, Offline & Push
 
 ## Status
 [~] In progress — implementation complete; automated verification green (553 tests, 34 suites); not declared complete pending human QA.
+
+## S15 Locked Decisions (user-approved 2026-10-08)
+1. PWA & manifest: `vite-plugin-pwa` generateSW mode (Phase 0 rolldown spike PASSED — see ADR-040 note); manifest `standalone`, theme `#4f46e5`, bg `#f9fafb`, icons 192/512/maskable. `index.html` retitled "HomeHunt | Find Your Ideal Home" + theme-color/description/apple-touch-icon.
+2. Service worker: **registration is production-only and explicit** (`src/main.jsx`, `import.meta.env.PROD`; `injectRegister:false`). `vite dev` and every test/harness run have ZERO SW interception. Fail-closed allow-list caching (ADR-039): precache hashed assets + shell; NetworkFirst (1 h, 200-only) for exactly five public reads; CacheFirst images (60/30 d) and OSM tiles (100/30 d); **every other `/api/*` route has no rule → NetworkOnly** (auth, conversations, admin, documents, visits, notifications).
+3. Offline UX: global banner in `AppLayout` (`useOnlineStatus`); `/offline` route + precached shell as `navigateFallback`; detail view renders a "Cached copy — may be outdated" pill when served from CacheStorage (`lib/offlineCache.js`); mutations fail visibly (no background sync queue).
+4. Performance: route-level `React.lazy` + `<Suspense>` (`PageSpinner`) for listings/detail/compare/messages/admin/agent/forms/saved-searches/offline; Home/Login/Register eager; vendor split (react/redux/leaflet/lucide/socket/forms). Budget: **no JS chunk > 300 kB raw** (ADR-040) — met, largest 221.55 kB.
+5. Notification API (client-only): socket `notification:new` while `document.visibilityState === 'hidden'` shows a local notification (no VAPID); permission requested ONLY on explicit bell-menu gesture. Web Push formally deferred post-MVP.
+
+## Planned deliverables
+- `vite-plugin-pwa` devDependency + PWA config (manifest, workbox allow-list, vendor chunks)
+- Icons (192/512/maskable, generated dependency-free) + `index.html` branding
+- `hooks/useOnlineStatus.js`, `lib/offlineCache.js`, `lib/backgroundNotifications.js`, `pages/Offline.jsx`, `components/ui/PageSpinner.jsx`
+- AppLayout banner, ListingDetail cached-copy pill, NotificationBell opt-in toggle, App lazy routes + background notification wiring
+- ADR-039/040 + docs (01/02/07/08/10/13)
+
+## S15 Explicitly out of scope
+- VAPID/Web Push (deferred post-MVP), background sync / offline mutation queues, S16 (Docker/Nginx/CI-CD/Playwright/Lighthouse CI), tile pre-caching of whole cities, recommendation engine (S17).
+
+## S15 status
+Verification green: 553 tests / 34 suites (`--runInBand`, Node v24.20.0 — unchanged baseline; S15 touches zero server files), server lint clean, client lint clean (`oxlint` zero warnings), client build clean with all JS chunks ≤ 300 kB raw, `git diff --check` clean. Not declared complete pending human QA.
+
+## S15 manual QA checklist (human)
+- Build + preview (`npm run build && npm run preview`): DevTools → Application → Manifest shows HomeHunt with 192/512/maskable icons; Service Workers shows `sw.js` activated at scope `/`; the install icon appears in the address bar (installable).
+- Offline shell: DevTools → Network → Offline, then reload a route you have NOT cached → the offline page renders (not a browser error); open `/listings` and a previously viewed listing → cached content renders; the detail page shows the amber "Cached copy — may be outdated" pill; the global amber offline banner is visible.
+- Cache privacy: with the app signed in, Application → Cache Storage must contain ONLY `api-public-reads`, `osm-tiles`, `listing-images`, and the workbox precache — never an auth/conversations/admin/documents response. Sign out → `/api/auth/logout` is never cached.
+- Desktop alerts: bell flyout → "Enable desktop alerts" prompts once (user gesture); grant it, hide the tab, trigger a notification (e.g. price drop) → an OS notification appears; clicking focuses the tab and navigates. Deny → the button/state reflects it; no prompt on page load.
+- Performance: build output shows per-route chunks (Listings/ListingDetail/Admin/AgentDashboard/ListingForm/Messages/Compare) and no chunk > 300 kB; Leaflet (`vendor-leaflet`) loads only on `/listings` and `/listings/:id`, not on `/`.
+- Dev safety: `npm run dev` → no service worker registered (Application → Service Workers empty); login, listings, chat all behave as before.
+- Regression: server suite unchanged (553/34); listings/detail/compare/bookmarks/saved-searches/messages flows identical apart from the offline affordances.
+
+## S14 delivery record (complete)
+S14 — Mortgage, Comparison & Analytics is complete: EMI calculator, comparison matrix, price history + price-drop alerts, market analytics, committed (77da00b). Verification at sign-off: 553 tests / 34 suites green.
+
+## Sprint
+S14 — Mortgage, Comparison & Analytics
+
+## Status
+[x] Complete — committed and pushed (77da00b). Verification at sign-off: 553 tests, 34 suites; server lint clean, client lint clean, client build clean.
 
 ## S14 Locked Decisions (user-approved 2026-10-07)
 1. Price history: `priceHistory: [{ price, changedAt }]` embedded on Property, capped 50 (drop oldest), appended ONLY by the update funnel when the price genuinely changes. Never client-writable (absent from both sanitizer pick-lists). Public payloads expose trimmed `{ price, changedAt }` only.

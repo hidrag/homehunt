@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { Provider, useDispatch, useSelector } from "react-redux";
 import { store } from "./app/store";
@@ -14,24 +14,31 @@ import {
   bumpUnread,
 } from "./features/notifications/notificationsSlice";
 import { connectSocket, disconnectSocket, getSocket } from "./lib/socket";
+import { showBackgroundNotification } from "./lib/backgroundNotifications";
 
 import AppLayout from "./components/layout/AppLayout";
 import Home from "./pages/Home";
-import Listings from "./pages/Listings";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-import Admin from "./pages/Admin";
-import AgentDashboard from "./pages/AgentDashboard";
-import ListingForm from "./pages/ListingForm";
-import ListingDetail from "./pages/ListingDetail";
-import Compare from "./pages/Compare";
 import Bookmarks from "./pages/Bookmarks";
 import MyInquiries from "./pages/MyInquiries";
 import Visits from "./pages/Visits";
-import Messages from "./pages/Messages";
-import SavedSearches from "./pages/SavedSearches";
 import Notifications from "./pages/Notifications";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import PageSpinner from "./components/ui/PageSpinner";
+
+// S15 (ADR-040) — heavy routes are lazily loaded so their code (Leaflet for
+// map pages, chat surface, dashboards, forms) never ships in the initial
+// chunk. Home/Login/Register stay eager (cold-traffic pages).
+const Listings = React.lazy(() => import("./pages/Listings"));
+const ListingDetail = React.lazy(() => import("./pages/ListingDetail"));
+const Compare = React.lazy(() => import("./pages/Compare"));
+const Messages = React.lazy(() => import("./pages/Messages"));
+const Admin = React.lazy(() => import("./pages/Admin"));
+const AgentDashboard = React.lazy(() => import("./pages/AgentDashboard"));
+const ListingForm = React.lazy(() => import("./pages/ListingForm"));
+const SavedSearches = React.lazy(() => import("./pages/SavedSearches"));
+const Offline = React.lazy(() => import("./pages/Offline"));
 
 function AppContent() {
   const dispatch = useDispatch();
@@ -62,7 +69,13 @@ function AppContent() {
       dispatch(fetchChatUnread());
       dispatch(fetchNotificationUnread());
       const socket = connectSocket();
-      const onNotification = () => dispatch(bumpUnread());
+      // S15 — backgrounded tab: also surface an OS-level local notification
+      // (no-op unless permission was granted via the bell toggle and the tab
+      // is hidden). Never delays the in-app badge update.
+      const onNotification = (payload) => {
+        dispatch(bumpUnread());
+        showBackgroundNotification(payload?.notification);
+      };
       socket.on('notification:new', onNotification);
       return () => {
         getSocket().off('notification:new', onNotification);
@@ -78,14 +91,16 @@ function AppContent() {
 
   return (
     <Router>
-      <Routes>
-        <Route path="/" element={<AppLayout />}>
-          <Route index element={<Home />} />
-          <Route path="listings" element={<Listings />} />
-          <Route path="listings/:id" element={<ListingDetail />} />
-          <Route path="compare" element={<Compare />} />
-          <Route path="login" element={<Login />} />
-          <Route path="register" element={<Register />} />
+      <Suspense fallback={<PageSpinner />}>
+        <Routes>
+          <Route path="/" element={<AppLayout />}>
+            <Route index element={<Home />} />
+            <Route path="listings" element={<Listings />} />
+            <Route path="listings/:id" element={<ListingDetail />} />
+            <Route path="compare" element={<Compare />} />
+            <Route path="offline" element={<Offline />} />
+            <Route path="login" element={<Login />} />
+            <Route path="register" element={<Register />} />
           <Route
             path="bookmarks"
             element={
@@ -167,8 +182,9 @@ function AppContent() {
               </ProtectedRoute>
             }
           />
-        </Route>
-      </Routes>
+          </Route>
+        </Routes>
+      </Suspense>
     </Router>
   );
 }
