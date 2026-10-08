@@ -17,3 +17,6 @@ pnpm-debug.log*
 *.sln
 *.sw?
 .kilo/
+# S16 — Playwright artifacts
+e2e/test-results/
+e2e/playwright-report/

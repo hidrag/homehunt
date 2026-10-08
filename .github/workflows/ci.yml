@@ -1,5 +1,8 @@
 name: CI
 
+# S16 (ADR-041/042) — every `run:` below is a static command; no untrusted
+# event input (titles, bodies, refs, commit messages) is ever interpolated,
+# so the workflow-injection class does not apply.
 on:
   push:
     branches: [ main ]
@@ -7,6 +10,15 @@ on:
     branches: [ main ]
 
 jobs:
+  hygiene:
+    # Whitespace / merge-marker gate across the whole tree.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - run: git diff --check HEAD~1 || git diff --check
+
   client-build-and-test:
     runs-on: ubuntu-latest
     defaults:
@@ -23,6 +35,8 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run build
+      - name: Enforce chunk budget (ADR-040 - no JS chunk over 300 kB raw)
+        run: node scripts/check-chunk-budget.mjs
 
   server-build-and-test:
     runs-on: ubuntu-latest
@@ -40,3 +54,55 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
+
+  docker-build:
+    # S16 (ADR-042) — verify both production images build. No push: registry
+    # publication is a deployment decision that needs secrets (kept out of CI).
+    runs-on: ubuntu-latest
+    needs: [ client-build-and-test, server-build-and-test ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build server image
+        run: docker build -t homehunt-server:ci ./server
+      - name: Build client image
+        run: docker build -t homehunt-client:ci ./client
+
+  e2e:
+    # S16 (ADR-041) — Playwright journeys against the containerized simulation.
+    runs-on: ubuntu-latest
+    needs: [ docker-build ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Bring up the e2e stack
+        run: docker compose -f docker-compose.e2e.yml up -d --build
+      - name: Seed the e2e database (explicit one-shot, never auto-seeds)
+        run: docker compose -f docker-compose.e2e.yml run --rm -e NODE_ENV=development server npm run seed
+      - name: Wait for readiness
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:4173/api/ready >/dev/null; then echo ready; exit 0; fi
+            sleep 2
+          done
+          echo "stack did not become ready"
+          docker compose -f docker-compose.e2e.yml logs
+          exit 1
+      - name: Install Playwright
+        working-directory: ./e2e
+        run: npm ci && npx playwright install --with-deps chromium
+      - name: Run journeys
+        working-directory: ./e2e
+        run: npx playwright test
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report
+          retention-days: 7
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker-compose.e2e.yml down -v

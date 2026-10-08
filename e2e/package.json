@@ -1,0 +1,15 @@
+{
+  "name": "homehunt-e2e",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "S16 (ADR-041) — Playwright end-to-end journeys against the containerized production simulation. Isolated workspace: installs nothing into server/ or client/.",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}

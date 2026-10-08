@@ -1,0 +1,54 @@
+# S16 (ADR-042) — local production simulation: server + client(nginx) + mongodb.
+#
+# Single-instance by locked decision (Q1): no Redis adapter / distributed
+# locks. The upgrade path is documented in docs/14-deployment-runbook.md.
+services:
+  mongodb:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  server:
+    build:
+      context: ./server
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      # Client is served from the same origin through nginx.
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:8080}
+      MONGODB_URI: mongodb://mongodb:27017/homehunt
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET in .env}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET in .env}
+      TRUST_PROXY: "1"
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-300}
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-900000}
+      UPLOAD_PROVIDER: ${UPLOAD_PROVIDER:-fake}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-fake}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    expose:
+      - "5000"
+
+  client:
+    build:
+      context: ./client
+      args:
+        VITE_API_URL: /api
+    restart: unless-stopped
+    depends_on:
+      server:
+        condition: service_started
+    ports:
+      - "${CLIENT_PORT:-8080}:80"
+
+volumes:
+  mongo-data:

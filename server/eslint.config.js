@@ -10,6 +10,11 @@ export default [
         process: "readonly",
         console: "readonly",
         URLSearchParams: "readonly",
+        // Node timer globals (S16 graceful-shutdown timeout).
+        setTimeout: "readonly",
+        clearTimeout: "readonly",
+        setInterval: "readonly",
+        clearInterval: "readonly",
       },
     },
     rules: {

@@ -1,10 +1,49 @@
 # HomeHunt — Current Sprint
 
 ## Sprint
+S16 — Testing, Security, Performance & Deployment
+
+## Status
+[~] In progress — implementation complete; automated verification green (559 tests, 35 suites); not declared complete pending human QA.
+
+## S16 Locked Decisions (user-approved 2026-10-08)
+1. Containerization: single-instance Compose (server + client/nginx + mongodb). `server/Dockerfile` multi-stage, `node:24-bookworm-slim` (bcrypt/glibc; alpine deferred to a CI spike), `tini` PID 1, non-root `node`, `/api/health` healthcheck. `client/Dockerfile` builds the SPA with `VITE_API_URL=/api` and serves via `nginx:alpine`.
+2. Reverse proxy (ADR-042): `/api/` and `/socket.io/` (WS upgrade) → server:5000; SPA `try_files`; **`sw.js`/`index.html`/`manifest.webmanifest` no-cache**, hashed `/assets/*` immutable; enumerated CSP (tiles, Unsplash, Cloudinary, Leaflet inline styles, tour frames) + nosniff + X-Frame-Options.
+3. Server hardening: `trust proxy` env-tunable (default 1); global limiter default 300/15 min with `RATE_LIMIT_MAX`/`RATE_LIMIT_WINDOW_MS` overrides (auth limiter stays 10/15); `GET /api/health` (liveness) + `GET /api/ready` (readiness, Mongo readyState) exempt from limiting; bounded graceful shutdown on SIGTERM/SIGINT.
+4. E2E (ADR-041): Playwright in an isolated `e2e/` workspace, running against the containerized production simulation (`docker-compose.e2e.yml`); 12 docs/10 flows mapped to 6 journeys; workers 1 / retries 0; rate limits raised via env knobs (no test-only branches).
+5. Runbook + seeding: `docs/14-deployment-runbook.md`; **never auto-seed on boot** — explicit one-shot for staging, admin-API provisioning for production; horizontal scaling deferred with documented evidence triggers (Redis adapter / replica-set transactions / Redis limiter store).
+
+## Planned deliverables
+- Server: trust-proxy, env limiter, `/ready`, graceful shutdown + `health.api.test.js`
+- Containers: both Dockerfiles + `.dockerignore`s, `client/nginx.conf`, `docker-compose.yml`, `docker-compose.e2e.yml`
+- E2E: `e2e/` workspace (config, fixtures, 6 journey specs, README)
+- CI: `hygiene`, chunk-budget gate, `docker-build`, `e2e` jobs
+- Docs: ADR-041/042, runbook (14), roadmap/sprint/architecture/testing/security/env updates
+
+## S16 Explicitly out of scope
+- Horizontal scaling (Redis adapter, distributed locks, Redis limiter store) — deferred with triggers; Kubernetes/Terraform; registry push/auto-deploy (needs secrets); VAPID/Web Push (still deferred); S17 recommendation engine.
+
+## S16 status
+Verification green: 559 tests / 35 suites (`--runInBand`, Node v24.20.0; 553 baseline + 6 new health/proxy tests), server lint clean, client lint clean, client build clean, chunk budget met, `git diff --check` clean. **Docker was not installed on the authoring host**, so the container builds, the compose stack and the Playwright run against it are NOT executed here — they are wired for CI (`docker-build`, `e2e` jobs) and documented as human/CI verification. Not declared complete pending human QA.
+
+## S16 manual QA checklist (human — requires Docker)
+- `docker compose build` succeeds for both images; `docker compose up -d` brings the stack healthy (`docker compose ps`); `curl localhost:8080/api/ready` → 200.
+- Installability: open `http://localhost:8080` → install icon present; DevTools → Application → Manifest = HomeHunt; Service Workers shows `sw.js`; `/sw.js` response is `no-cache`, `/assets/*` is `immutable`.
+- Proxy correctness: `curl -H 'X-Forwarded-For: 1.2.3.4' localhost:8080/api/health` → 200; the limiter keys on the client IP, not the proxy.
+- WebSocket: sign in as buyer + agent in two tabs → live chat works through the nginx `/socket.io/` upgrade.
+- Graceful shutdown: `docker compose stop server` → logs show "shutting down gracefully" then "Shutdown complete" (no SIGKILL).
+- Seeding guard: `docker compose run --rm server npm run seed` with `NODE_ENV=production` must REFUSE; the documented `-e NODE_ENV=development` one-shot seeds.
+- E2E (needs Docker + Playwright browsers): `docker compose -f docker-compose.e2e.yml up -d --build` → seed → `cd e2e && npx playwright install --with-deps chromium && npm test` → 6 journeys pass.
+- TLS/HTTPS cookie check on a real host (secure cookies require HTTPS in production).
+
+## S15 delivery record (complete)
+S15 — PWA, Offline & Push is complete: installable PWA, service-worker allow-list caching, offline UX, route-level code splitting, local notifications, committed (a73c5a2). Verification at sign-off: 553 tests / 34 suites green.
+
+## Sprint
 S15 — PWA, Offline & Push
 
 ## Status
-[~] In progress — implementation complete; automated verification green (553 tests, 34 suites); not declared complete pending human QA.
+[x] Complete — committed and pushed (a73c5a2). Verification at sign-off: 553 tests, 34 suites; server lint clean, client lint clean, client build clean.
 
 ## S15 Locked Decisions (user-approved 2026-10-08)
 1. PWA & manifest: `vite-plugin-pwa` generateSW mode (Phase 0 rolldown spike PASSED — see ADR-040 note); manifest `standalone`, theme `#4f46e5`, bg `#f9fafb`, icons 192/512/maskable. `index.html` retitled "HomeHunt | Find Your Ideal Home" + theme-color/description/apple-touch-icon.

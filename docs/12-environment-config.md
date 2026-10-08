@@ -9,6 +9,13 @@ This document defines expected configuration names. Actual secrets must never be
 - `MONGODB_URI`
 - `JWT_ACCESS_SECRET`
 - `JWT_REFRESH_SECRET`
+- `TRUST_PROXY` (S16, ADR-042) — number of proxy hops in front of the server. Default `1` (a single nginx). Required for correct client-IP rate limiting behind a reverse proxy; raise it if you add more proxies.
+- `RATE_LIMIT_MAX` (S16) — global limiter ceiling per window. Default `300`.
+- `RATE_LIMIT_WINDOW_MS` (S16) — global limiter window in ms. Default `900000` (15 min). The auth limiter (10 / 15 min, ADR-016) is separate and not env-tunable.
+- `SHUTDOWN_TIMEOUT_MS` (S16) — bounded graceful-shutdown window. Default `8000`.
+
+## Client build (Docker)
+- `VITE_API_URL` — baked at build time. Production/container builds use `/api` (same-origin through nginx, ADR-042); local dev uses the dev API URL.
 
 ## Cloudinary
 - `CLOUDINARY_CLOUD_NAME`

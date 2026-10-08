@@ -44,6 +44,7 @@
 
 ### Component & Frontend
 - React UI components, forms, and interaction states.
+- **Containerization / deployment verification (S16, ADR-042)**: server hardening (trust-proxy, env limiter, `/api/health` + `/api/ready`, graceful shutdown) is covered by `tests/integration/health.api.test.js`; the client chunk budget (ADR-040) is CI-gated by `client/scripts/check-chunk-budget.mjs`. The Docker image builds, the compose stack, and the Playwright journeys that run against it require Docker and are gated in CI (`docker-build`, `e2e` jobs) — they are not runnable on a host without Docker.
 - **PWA / service worker verification (S15, ADR-039)**: the service worker and web-app manifest are BUILD-gated, not unit-tested. The server test runner never sees a service worker (registration is `import.meta.env.PROD`-gated and the plugin injector is disabled), so the 553 server tests are unaffected by construction and the `vite dev` experience is unchanged. Verification is: `npm run build` must emit `dist/sw.js` + `dist/manifest.webmanifest`; a scripted size-check asserts no JS chunk exceeds the ADR-040 300 kB budget; and the SW's cache allow-list is proven by inspecting the generated `sw.js` (only the five public read endpoints appear as rules; auth/conversations/admin/documents have none → NetworkOnly). Installability, offline shell/fallback, cached-copy flag and the notification opt-in are validated through structured manual QA (Application panel, Network-offline, and a hidden-tab notification) until S16 introduces browser E2E.
 - *Current implementation status*: The `client` application does not currently have a dedicated test runner (e.g. Vitest/React Testing Library) installed. Code quality and correctness are maintained via:
   - Strict static analysis with `oxlint`.
@@ -51,8 +52,10 @@
   - Manual browser testing across desktop, tablet, and mobile viewports.
 - *Roadmap plan*: Install Vitest and React Testing Library in a dedicated testing pass to avoid adding out-of-scope dependencies during feature sprints.
 
-### E2E
-- Critical user journeys planned for S16 (Cypress/Playwright).
+### E2E (S16, ADR-041 — Playwright)
+- Implemented as an **isolated top-level `e2e/` workspace** (own `package.json`, Playwright only; installs nothing into `server/` or `client/`). Run against the **containerized production simulation** (`docker-compose.e2e.yml`): nginx serving the built SPA and proxying `/api` + `/socket.io` to the real server on a real MongoDB — so proxying, WebSockets, SPA fallback, cache headers and the service worker are exercised in situ.
+- The canonical 12 flows below are covered by 6 journey specs (`e2e/tests/01-…06-…`), mapping documented in `e2e/README.md` and ADR-041. Policy: `workers: 1`, `retries: 0` (seeded data is deterministic per ADR-033); rate limits raised via the ADR-042 env knobs — no test-only code branches.
+- Verified in CI (`.github/workflows/ci.yml` `e2e` job) and by the human when Docker is available; the authoring host for S16 had no Docker, so the suite was syntax-verified and test-discovered (`playwright test --list` → 10 tests / 6 files) but not executed there.
 
 ## Minimum critical E2E flows
 - Registration

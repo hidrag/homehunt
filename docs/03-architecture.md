@@ -48,6 +48,7 @@ This is intentionally a simple monorepo-style repository without a workspace/bui
 ## Realtime
 - Socket.io
 - Conversation-based rooms, keyed by conversation ID
+- Deployment topology (S16, ADR-042): single-instance Docker Compose — `client` (nginx: serves the built SPA, reverse-proxies `/api` + `/socket.io` with WebSocket upgrade, applies the cache/security-header matrix) → `server` (Node 24, non-root, `tini` PID 1, `/api/health` healthcheck, graceful shutdown) → `mongodb` (named volume). Same-origin serving (`VITE_API_URL=/api`) removes CORS and activates the S15 service-worker API caching. Horizontal scaling (Redis adapter, distributed locks, Redis limiter store) is deliberately deferred with evidence triggers recorded in ADR-042 and `docs/14-deployment-runbook.md`.
 - S9 (ADR-026…ADR-028): the Socket.io server is attached to an `http.createServer(app)` in `server.js` (CORS matching `CLIENT_URL`, `credentials: true`). Handshake authentication reuses the `hh_access` cookie and `verifyAccessToken`; unauthenticated sockets are rejected. **Sending is REST-only** — the message is persisted by the REST handler and then emitted as `message:new` through `server/src/sockets/registry.js`; clients emit only `conversation:join` / `conversation:leave`. Room membership is re-verified against MongoDB on every join (non-participants are rejected and disconnected). The default in-memory adapter is a deliberate single-process boundary (Redis adapter deferred to S16).
 
 ## Email
